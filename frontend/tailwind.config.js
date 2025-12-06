@@ -7,12 +7,14 @@ export default {
     theme: {
         extend: {
             colors: {
-                background: "#121212", // Deep Charcoal
-                surface: "#1E1E1E",    // Slightly lighter for cards
-                primary: "#FFD700",    // Gold
-                secondary: "#00F3FF",  // Neon Blue
-                accent: "#E50914",     // Cinematic Red
-                text: "#E0E0E0",       // Soft White
+                background: "#0F172A", // Slate 900
+                surface: "#1E293B",    // Slate 800
+                surfaceHighlight: "#334155", // Slate 700
+                primary: "#D97706",    // Amber 600 (Professional Gold/Bronze)
+                secondary: "#64748B",  // Slate 500
+                accent: "#EF4444",     // Red 500
+                text: "#F8FAFC",       // Slate 50
+                textMuted: "#94A3B8",  // Slate 400
             },
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],

@@ -2,15 +2,15 @@ import { DollarSign, Ticket, Film, TrendingUp } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 
 const StatCard = ({ title, value, change, icon: Icon, colorClass }) => (
-    <div className="glass-panel p-6 hover:bg-white/5 transition-colors group relative overflow-hidden">
-        <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${colorClass}`}>
+    <div className="glass-panel p-6 hover:bg-surfaceHighlight/30 transition-colors group relative overflow-hidden">
+        <div className={`absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity ${colorClass}`}>
             <Icon size={64} />
         </div>
         <div className="relative z-10">
-            <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider">{title}</h3>
-            <p className="text-4xl font-bold text-white mt-2">{value}</p>
+            <h3 className="text-textMuted text-sm font-medium uppercase tracking-wider">{title}</h3>
+            <p className="text-3xl font-bold text-white mt-3">{value}</p>
             {change && (
-                <div className="flex items-center gap-1 mt-2 text-sm font-medium text-green-400">
+                <div className="flex items-center gap-1 mt-3 text-sm font-medium text-emerald-500">
                     <TrendingUp size={14} />
                     <span>{change}</span>
                 </div>
@@ -21,13 +21,13 @@ const StatCard = ({ title, value, change, icon: Icon, colorClass }) => (
 
 const AdminDashboard = () => {
     return (
-        <div className="flex min-h-screen">
+        <div className="flex min-h-screen bg-background">
             <AdminSidebar />
             <div className="flex-1 p-8 overflow-y-auto">
                 <header className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-4xl font-bold text-white mb-2">Overview</h1>
-                        <p className="text-gray-400">Welcome back, Admin. Here's what's happening today.</p>
+                        <h1 className="text-3xl font-bold text-white mb-2">Overview</h1>
+                        <p className="text-textMuted">Welcome back, Admin. Here's what's happening today.</p>
                     </div>
                     <div className="flex gap-4">
                         <button className="btn-secondary">Download Report</button>
