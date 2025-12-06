@@ -41,7 +41,7 @@ function App() {
 
           <Route path="/booking/:showtimeId" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
 
-          <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route path="/" element={<Home />} />
         </Routes>
       </AuthProvider>
     </Router>
