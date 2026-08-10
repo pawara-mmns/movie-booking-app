@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, admin, bookings
+from app.routers import auth, admin, bookings, catalog
 from app.database import engine, Base
 
 middleware = [
@@ -35,6 +35,7 @@ async def startup():
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
+app.include_router(catalog.router, prefix="/api/movies", tags=["Movie Catalog"])
 
 @app.get("/")
 def read_root():
