@@ -3,6 +3,7 @@ from starlette.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, admin, bookings, catalog
 from app.database import engine, Base
+from app.redis_client import redis_client
 
 middleware = [
     Middleware(
@@ -31,6 +32,7 @@ async def add_cors_header(request: Request, call_next):
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await redis_client.connect()
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])

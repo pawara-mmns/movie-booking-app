@@ -7,7 +7,6 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminMovies from './pages/AdminMovies';
 import AdminScreens from './pages/AdminScreens';
 import AdminShowtimes from './pages/AdminShowtimes';
-import Home from './pages/Home';
 import BookingPage from './pages/BookingPage';
 import MovieBrowser from './pages/MovieBrowser';
 import MovieDetails from './pages/MovieDetails';
@@ -48,10 +47,10 @@ function App() {
           <Route path="/admin/screens" element={<AdminRoute><AdminScreens /></AdminRoute>} />
           <Route path="/admin/showtimes" element={<AdminRoute><AdminShowtimes /></AdminRoute>} />
 
-          <Route path="/booking/:showtimeId" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
-          <Route path="/movies/:movieId" element={<ProtectedRoute><MovieDetails /></ProtectedRoute>} />
+          <Route path="/booking/:showtimeId" element={<BookingPage />} />
+          <Route path="/movies/:movieId" element={<MovieDetails />} />
 
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<MovieBrowser />} />
         </Routes>
       </AuthProvider>
     </Router>
