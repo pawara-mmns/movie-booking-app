@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, Clock3, Film, Search, SlidersHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
-import { useAuth } from '../context/AuthContext';
 
 const emptyFilters = { genres: [], screens: [], dates: [] };
 
 const MovieBrowser = () => {
-    const { user } = useAuth();
     const [movies, setMovies] = useState([]);
     const [filterOptions, setFilterOptions] = useState(emptyFilters);
     const [filters, setFilters] = useState({ search: '', genre: '', showDate: '', screenId: '' });
@@ -18,10 +16,7 @@ const MovieBrowser = () => {
         const controller = new AbortController();
         const loadFilters = async () => {
             try {
-                const response = await fetch('/api/movies/filters', {
-                    headers: { Authorization: `Bearer ${user.token}` },
-                    signal: controller.signal,
-                });
+                const response = await fetch('/api/movies/filters', { signal: controller.signal });
                 if (!response.ok) throw new Error('Could not load movie filters');
                 setFilterOptions(await response.json());
             } catch (requestError) {
@@ -30,7 +25,7 @@ const MovieBrowser = () => {
         };
         loadFilters();
         return () => controller.abort();
-    }, [user.token]);
+    }, []);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -44,10 +39,7 @@ const MovieBrowser = () => {
             if (filters.screenId) params.set('screen_id', filters.screenId);
 
             try {
-                const response = await fetch(`/api/movies?${params}`, {
-                    headers: { Authorization: `Bearer ${user.token}` },
-                    signal: controller.signal,
-                });
+                const response = await fetch(`/api/movies?${params}`, { signal: controller.signal });
                 if (!response.ok) throw new Error('Could not load movies');
                 setMovies(await response.json());
             } catch (requestError) {
@@ -61,7 +53,7 @@ const MovieBrowser = () => {
             clearTimeout(timer);
             controller.abort();
         };
-    }, [filters, user.token]);
+    }, [filters]);
 
     const updateFilter = (name, value) => setFilters(current => ({ ...current, [name]: value }));
     const clearFilters = () => setFilters({ search: '', genre: '', showDate: '', screenId: '' });
