@@ -13,7 +13,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 class UserCreate(BaseModel):
     email: str
     password: str
-    role: str = "CUSTOMER"
 
 class Token(BaseModel):
     access_token: str
@@ -33,7 +32,7 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db)):
         user = User(
             email=user_in.email,
             hashed_password=security.get_password_hash(user_in.password),
-            role=user_in.role
+            role="CUSTOMER"
         )
         db.add(user)
         await db.commit()
