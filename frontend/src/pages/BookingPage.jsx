@@ -1,118 +1,103 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, CalendarClock, Loader, LockKeyhole, MapPin, UserPlus, Users } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import CustomerHeader from '../components/CustomerHeader';
 import SeatSelection from '../components/SeatSelection';
-import { Loader } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+
+const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 
 const BookingPage = () => {
     const { showtimeId } = useParams();
     const { user } = useAuth();
     const navigate = useNavigate();
-
     const [showtime, setShowtime] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [bookingData, setBookingData] = useState({ seats: [], total: 0 });
     const [processing, setProcessing] = useState(false);
 
-    useEffect(() => {
-        const fetchShowtime = async () => {
-            try {
-                const res = await fetch(`http://localhost:8000/api/bookings/showtime/${showtimeId}`, {
-                    headers: { 'Authorization': `Bearer ${user?.token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setShowtime(data);
-                }
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchShowtime();
-    }, [showtimeId, user]);
+    const loadShowtime = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`/api/bookings/showtime/${showtimeId}`);
+            if (response.status === 404) throw new Error('Showtime not found');
+            if (!response.ok) throw new Error('Could not load seat availability');
+            setShowtime(await response.json());
+        } catch (requestError) {
+            setError(requestError.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [showtimeId]);
+
+    useEffect(() => { loadShowtime(); }, [loadShowtime]);
+
+    const normalizedLayout = useMemo(() => showtime?.seat_configuration.map(row => row.map(seat => typeof seat === 'string' ? seat : ({ 0: 'gap', 1: 'standard', 2: 'vip' }[seat] || 'standard'))) || [], [showtime]);
+    const unavailableSeats = useMemo(() => [...new Set([...(showtime?.booked_seats || []), ...(showtime?.locked_seats || [])])], [showtime]);
+
+    const requestSeat = async (endpoint, row, col) => {
+        const response = await fetch(`/api/bookings/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+            body: JSON.stringify({ showtime_id: Number(showtimeId), row, col }),
+        });
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Seat is unavailable');
+        }
+    };
 
     const handleBooking = async () => {
         if (bookingData.seats.length === 0) return;
+        if (!user) {
+            navigate(`/register?returnTo=${encodeURIComponent(`/booking/${showtimeId}`)}`);
+            return;
+        }
 
         setProcessing(true);
         try {
-            const seats = bookingData.seats.map(s => s.split('-').map(Number));
-
-            const res = await fetch('http://localhost:8000/api/bookings/book', {
+            const response = await fetch('/api/bookings/book', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user?.token}`
-                },
-                body: JSON.stringify({ showtime_id: parseInt(showtimeId), seats })
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+                body: JSON.stringify({ showtime_id: Number(showtimeId), seats: bookingData.seats.map(seat => seat.split('-').map(Number)) }),
             });
-
-            if (res.ok) {
-                const data = await res.json();
-                alert(`Booking Confirmed! Ref: ${data.reference}`);
-                navigate('/dashboard');
-            } else {
-                alert("Booking Failed");
-            }
-        } catch (error) {
-            console.error(error);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Booking failed');
+            window.alert(`Booking confirmed! Reference: ${data.reference}`);
+            navigate('/dashboard');
+        } catch (requestError) {
+            window.alert(requestError.message);
+            await loadShowtime();
+            setBookingData({ seats: [], total: 0 });
         } finally {
             setProcessing(false);
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-white">Loading...</div>;
-    if (!showtime) return <div className="min-h-screen bg-background flex items-center justify-center text-white">Showtime not found</div>;
-
-    // Fallback for legacy layout data (integers)
-    const normalizedLayout = showtime.seat_configuration.map(row =>
-        row.map(seat => {
-            if (typeof seat === 'string') return seat; // Already new format
-            // Map legacy integers
-            if (seat === 0) return 'gap';
-            if (seat === 1) return 'standard';
-            if (seat === 2) return 'vip';
-            return 'standard';
-        })
-    );
+    if (loading) return <div className="min-h-screen bg-background text-white flex items-center justify-center">Loading seat availability...</div>;
+    if (error || !showtime) return <div className="min-h-screen bg-background text-white flex flex-col gap-5 items-center justify-center"><p>{error || 'Showtime not found'}</p><Link to="/" className="btn-secondary">Browse movies</Link></div>;
 
     return (
-        <div className="min-h-screen bg-background text-white p-8 flex flex-col items-center">
-            <h1 className="text-3xl font-bold mb-2">{showtime.screen_name}</h1>
-            <p className="text-textMuted mb-8">Select your seats</p>
+        <div className="min-h-screen bg-background text-white pb-32">
+            <CustomerHeader />
+            <main className="max-w-6xl mx-auto px-6 py-8">
+                <Link to={`/movies/${showtime.movie_id}`} className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-7"><ArrowLeft size={18} /> Back to showtimes</Link>
+                <section className="glass-panel p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                    <div><p className="text-primary text-sm font-semibold uppercase tracking-wider mb-2">Select your seats</p><h1 className="text-3xl font-bold">{showtime.movie_title}</h1><div className="flex flex-wrap gap-4 text-gray-400 mt-3"><span className="flex items-center gap-2"><MapPin size={17} /> {showtime.screen_name}</span><span className="flex items-center gap-2"><CalendarClock size={17} /> {new Date(showtime.start_time).toLocaleString()}</span></div></div>
+                    <div className="flex gap-3"><div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 text-center"><p className="text-2xl font-bold text-emerald-400">{showtime.available_seats}</p><p className="text-xs text-gray-400">Available seats</p></div><div className="rounded-xl bg-white/5 border border-white/10 px-5 py-3 text-center"><p className="text-2xl font-bold">{showtime.total_seats}</p><p className="text-xs text-gray-400">Total seats</p></div></div>
+                </section>
 
-            <SeatSelection
-                layout={normalizedLayout}
-                bookedSeats={showtime.booked_seats}
-                onBookingChange={setBookingData}
-            />
+                {!user && <section className="mb-8 rounded-xl border border-sky-500/25 bg-sky-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"><div className="flex items-start gap-3"><Users className="text-sky-400 shrink-0 mt-0.5" /><div><p className="font-semibold">You are browsing as a guest</p><p className="text-sm text-gray-300 mt-1">Preview the live seat map and select up to 6 seats. You will create an account before booking.</p></div></div><Link to={`/login?returnTo=${encodeURIComponent(`/booking/${showtimeId}`)}`} className="btn-secondary whitespace-nowrap">Already have an account?</Link></section>}
+                {user && <div className="mb-6 flex items-center justify-center gap-2 text-sm text-gray-400"><LockKeyhole size={16} className="text-primary" /> Selected seats are held for 5 minutes.</div>}
 
-            <div className="fixed bottom-0 left-0 w-full bg-surface border-t border-white/10 p-4 shadow-lg z-50">
-                <div className="max-w-4xl mx-auto flex justify-between items-center">
-                    <div>
-                        <p className="text-textMuted text-sm">Total Price</p>
-                        <p className="text-2xl font-bold text-primary">${bookingData.total}</p>
-                    </div>
-                    <div className="flex items-center gap-6">
-                        <div className="text-right hidden sm:block">
-                            <p className="text-textMuted text-sm">Selected Seats</p>
-                            <p className="font-medium">{bookingData.seats.length > 0 ? bookingData.seats.join(', ') : 'None'}</p>
-                        </div>
-                        <button
-                            onClick={handleBooking}
-                            disabled={bookingData.seats.length === 0 || processing}
-                            className="btn-primary flex items-center gap-2 px-8 py-3"
-                        >
-                            {processing ? <Loader className="animate-spin" /> : 'Confirm Booking'}
-                        </button>
-                    </div>
-                </div>
-            </div>
+                <SeatSelection layout={normalizedLayout} unavailableSeats={unavailableSeats} seatPrice={showtime.price} onBookingChange={setBookingData} onSelectSeat={user ? (row, col) => requestSeat('lock', row, col) : undefined} onReleaseSeat={user ? (row, col) => requestSeat('release', row, col) : undefined} />
+            </main>
 
-            {/* Spacer for fixed footer */}
-            <div className="h-24" />
+            <footer className="fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 shadow-2xl z-50">
+                <div className="max-w-5xl mx-auto flex justify-between items-center gap-5"><div><p className="text-gray-400 text-sm">Total · {bookingData.seats.length} seat{bookingData.seats.length === 1 ? '' : 's'}</p><p className="text-2xl font-bold text-primary">{money(bookingData.total)}</p></div><div className="flex items-center gap-6"><div className="text-right hidden sm:block"><p className="text-gray-400 text-sm">Selected seats</p><p className="font-medium">{bookingData.seats.length ? bookingData.seats.map(seat => { const [row, col] = seat.split('-').map(Number); return `${String.fromCharCode(65 + row)}${col + 1}`; }).join(', ') : 'None'}</p></div><button onClick={handleBooking} disabled={bookingData.seats.length === 0 || processing} className="btn-primary flex items-center gap-2 px-8 py-3">{processing ? <Loader className="animate-spin" /> : user ? 'Confirm Booking' : <><UserPlus size={18} /> Create Account to Book</>}</button></div></div>
+            </footer>
         </div>
     );
 };

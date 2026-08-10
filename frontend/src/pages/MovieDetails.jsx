@@ -2,13 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, Clock3, Film, MapPin, Star } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
-import { useAuth } from '../context/AuthContext';
 
 const formatMoney = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 
 const MovieDetails = () => {
     const { movieId } = useParams();
-    const { user } = useAuth();
     const [movie, setMovie] = useState(null);
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedScreen, setSelectedScreen] = useState('');
@@ -21,10 +19,7 @@ const MovieDetails = () => {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`/api/movies/${movieId}`, {
-                    headers: { Authorization: `Bearer ${user.token}` },
-                    signal: controller.signal,
-                });
+                const response = await fetch(`/api/movies/${movieId}`, { signal: controller.signal });
                 if (response.status === 404) throw new Error('Movie not found');
                 if (!response.ok) throw new Error('Could not load movie details');
                 setMovie(await response.json());
@@ -36,14 +31,14 @@ const MovieDetails = () => {
         };
         loadMovie();
         return () => controller.abort();
-    }, [movieId, user.token]);
+    }, [movieId]);
 
     const dates = useMemo(() => movie ? [...new Set(movie.showtimes.map(show => show.start_time.slice(0, 10)))] : [], [movie]);
     const screens = useMemo(() => movie ? [...new Map(movie.showtimes.map(show => [show.screen_id, { id: show.screen_id, name: show.screen_name }])).values()] : [], [movie]);
     const visibleShowtimes = useMemo(() => movie?.showtimes.filter(show => (!selectedDate || show.start_time.slice(0, 10) === selectedDate) && (!selectedScreen || String(show.screen_id) === selectedScreen)) || [], [movie, selectedDate, selectedScreen]);
 
     if (loading) return <div className="min-h-screen bg-background text-white flex items-center justify-center">Loading movie...</div>;
-    if (error || !movie) return <div className="min-h-screen bg-background text-white flex flex-col gap-5 items-center justify-center"><p>{error || 'Movie not found'}</p><Link to="/dashboard" className="btn-secondary">Back to movies</Link></div>;
+    if (error || !movie) return <div className="min-h-screen bg-background text-white flex flex-col gap-5 items-center justify-center"><p>{error || 'Movie not found'}</p><Link to="/" className="btn-secondary">Back to movies</Link></div>;
 
     return (
         <div className="min-h-screen bg-background text-white">
@@ -53,7 +48,7 @@ const MovieDetails = () => {
                     {movie.poster_url && <div className="absolute inset-0 bg-cover bg-center blur-xl scale-110 opacity-20" style={{ backgroundImage: `url(${movie.poster_url})` }} />}
                     <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 to-slate-950" />
                     <div className="relative max-w-6xl mx-auto px-6 py-12">
-                        <Link to="/dashboard" className="inline-flex items-center gap-2 text-gray-300 hover:text-white mb-8"><ArrowLeft size={18} /> Back to movies</Link>
+                        <Link to="/" className="inline-flex items-center gap-2 text-gray-300 hover:text-white mb-8"><ArrowLeft size={18} /> Back to movies</Link>
                         <div className="grid md:grid-cols-[260px_1fr] gap-9 items-start">
                             <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl">
                                 {movie.poster_url ? <img src={movie.poster_url} alt={movie.title} className="w-full h-full object-cover" /> : <div className="h-full flex items-center justify-center"><Film size={60} className="text-gray-700" /></div>}

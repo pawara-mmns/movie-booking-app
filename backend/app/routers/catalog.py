@@ -6,8 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Movie, Screen, Showtime, User
-from app.routers.bookings import get_current_user
+from app.models import Movie, Screen, Showtime
 
 
 router = APIRouter()
@@ -37,7 +36,6 @@ async def list_now_showing(
     show_date: Optional[date] = None,
     screen_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     now = datetime.now()
     query = select(Movie).join(Showtime).where(Showtime.start_time >= now)
@@ -62,7 +60,6 @@ async def list_now_showing(
 @router.get("/filters")
 async def get_catalog_filters(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     now = datetime.now()
 
@@ -103,7 +100,6 @@ async def get_movie_details(
     show_date: Optional[date] = None,
     screen_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     movie_result = await db.execute(select(Movie).where(Movie.id == movie_id))
     movie = movie_result.scalars().first()
