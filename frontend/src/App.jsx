@@ -9,6 +9,8 @@ import AdminScreens from './pages/AdminScreens';
 import AdminShowtimes from './pages/AdminShowtimes';
 import Home from './pages/Home';
 import BookingPage from './pages/BookingPage';
+import MovieBrowser from './pages/MovieBrowser';
+import MovieDetails from './pages/MovieDetails';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -22,7 +24,7 @@ const ProtectedRoute = ({ children }) => {
 const Dashboard = () => {
   const { user } = useAuth();
   if (user?.role === 'ADMIN') return <Navigate to="/admin" />;
-  return <Home />;
+  return <MovieBrowser />;
 };
 
 function App() {
@@ -40,6 +42,7 @@ function App() {
           <Route path="/admin/showtimes" element={<ProtectedRoute><AdminShowtimes /></ProtectedRoute>} />
 
           <Route path="/booking/:showtimeId" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
+          <Route path="/movies/:movieId" element={<ProtectedRoute><MovieDetails /></ProtectedRoute>} />
 
           <Route path="/" element={<Home />} />
         </Routes>

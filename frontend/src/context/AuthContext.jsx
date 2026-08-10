@@ -1,24 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Check local storage for token on mount
+    const [user, setUser] = useState(() => {
         const token = localStorage.getItem('token');
-        if (token) {
-            // In a real app, validate token with backend here
-            // For now we just assume if token exists, user is logged in (simplified)
-            // Ideally we decode JWT to get user role
-            setUser({ token });
-        }
-        setLoading(false);
-    }, []);
+        return token ? { token, role: localStorage.getItem('role') || 'CUSTOMER' } : null;
+    });
 
     const login = async (email, password) => {
         const response = await fetch('/auth/login', {
@@ -34,6 +24,7 @@ export const AuthProvider = ({ children }) => {
 
         const data = await response.json();
         localStorage.setItem('token', data.access_token);
+        localStorage.setItem('role', data.role);
         setUser({ token: data.access_token, role: data.role });
     };
 
@@ -51,11 +42,13 @@ export const AuthProvider = ({ children }) => {
 
         const data = await response.json();
         localStorage.setItem('token', data.access_token);
+        localStorage.setItem('role', data.role);
         setUser({ token: data.access_token, role: data.role });
     };
 
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('role');
         setUser(null);
     };
 
@@ -64,12 +57,12 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        loading
+        loading: false
     };
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };
