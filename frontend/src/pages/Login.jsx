@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Film, Loader, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -11,6 +11,9 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedPath = searchParams.get('returnTo');
+    const destination = requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/dashboard';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -18,7 +21,7 @@ const Login = () => {
         setLoading(true);
         try {
             await login(email, password);
-            navigate('/dashboard');
+            navigate(destination);
         } catch (err) {
             setError(err.message || 'Failed to login');
         } finally {
@@ -29,7 +32,7 @@ const Login = () => {
     return (
         <div className="min-h-screen flex text-white">
             {/* Left Side - Hero Image */}
-            <motion.div
+            <Motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8 }}
@@ -47,7 +50,7 @@ const Login = () => {
                         Book the best seats, skip the lines, and immerse yourself in the magic of movies with CineSphere.
                     </p>
                 </div>
-            </motion.div>
+            </Motion.div>
 
             {/* Right Side - Login Form */}
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background relative">
@@ -55,7 +58,7 @@ const Login = () => {
                 <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
 
-                <motion.div
+                <Motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
@@ -67,14 +70,14 @@ const Login = () => {
                     </div>
 
                     {error && (
-                        <motion.div
+                        <Motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             className="bg-accent/10 border border-accent/20 text-accent p-3 rounded-lg mb-6 text-sm flex items-center gap-2"
                         >
                             <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
                             {error}
-                        </motion.div>
+                        </Motion.div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-5">
@@ -125,11 +128,11 @@ const Login = () => {
 
                     <p className="mt-8 text-center text-gray-400 text-sm">
                         Don't have an account?{' '}
-                        <Link to="/register" className="text-primary font-medium hover:underline underline-offset-4">
+                        <Link to={`/register?returnTo=${encodeURIComponent(destination)}`} className="text-primary font-medium hover:underline underline-offset-4">
                             Create free account
                         </Link>
                     </p>
-                </motion.div>
+                </Motion.div>
             </div>
         </div>
     );

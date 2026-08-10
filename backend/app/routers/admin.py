@@ -75,6 +75,18 @@ class ShowtimeCreate(BaseModel):
     price: int = Field(gt=0)
 
 
+class ShowtimeSlot(BaseModel):
+    start_time: str
+    end_time: str
+
+
+class ShowtimeBatchCreate(BaseModel):
+    movie_id: int
+    screen_id: int
+    price: int = Field(gt=0)
+    showtimes: List[ShowtimeSlot] = Field(min_length=1, max_length=100)
+
+
 def parse_datetime(value: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -305,6 +317,8 @@ async def create_showtime(
 ):
     start_time = parse_datetime(showtime.start_time)
     end_time = parse_datetime(showtime.end_time)
+    if start_time < datetime.now():
+        raise HTTPException(status_code=422, detail="Showtimes must be scheduled in the future")
     if end_time <= start_time:
         raise HTTPException(status_code=422, detail="End time must be after start time")
     if await db.get(Movie, showtime.movie_id) is None:
@@ -333,6 +347,66 @@ async def create_showtime(
     await db.commit()
     await db.refresh(db_showtime)
     return {"id": db_showtime.id}
+
+
+@router.post("/showtimes/bulk")
+async def create_showtimes_bulk(
+    schedule: ShowtimeBatchCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    movie = await db.get(Movie, schedule.movie_id)
+    if movie is None:
+        raise HTTPException(status_code=404, detail="Movie not found")
+    if await db.get(Screen, schedule.screen_id) is None:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    parsed_slots = sorted(
+        [(parse_datetime(slot.start_time), parse_datetime(slot.end_time)) for slot in schedule.showtimes],
+        key=lambda item: item[0],
+    )
+    now = datetime.now()
+    for index, (start_time, end_time) in enumerate(parsed_slots):
+        if start_time < now:
+            raise HTTPException(status_code=422, detail="Showtimes must be scheduled in the future")
+        if end_time <= start_time:
+            raise HTTPException(status_code=422, detail="End time must be after start time")
+        if index and parsed_slots[index - 1][1] > start_time:
+            raise HTTPException(status_code=409, detail="Two selected times overlap each other")
+
+        overlap = await db.scalar(
+            select(func.count(Showtime.id)).where(
+                Showtime.screen_id == schedule.screen_id,
+                Showtime.start_time < end_time,
+                Showtime.end_time > start_time,
+            )
+        )
+        if overlap:
+            formatted = start_time.strftime("%Y-%m-%d %H:%M")
+            raise HTTPException(
+                status_code=409,
+                detail=f"The selected screen is already booked around {formatted}",
+            )
+
+    created = []
+    for start_time, end_time in parsed_slots:
+        db_showtime = Showtime(
+            movie_id=schedule.movie_id,
+            screen_id=schedule.screen_id,
+            start_time=start_time,
+            end_time=end_time,
+            price=schedule.price,
+        )
+        db.add(db_showtime)
+        created.append(db_showtime)
+
+    await db.commit()
+    for db_showtime in created:
+        await db.refresh(db_showtime)
+    return {
+        "created_count": len(created),
+        "showtime_ids": [showtime.id for showtime in created],
+    }
 
 
 @router.delete("/showtimes/{showtime_id}", status_code=status.HTTP_204_NO_CONTENT)
