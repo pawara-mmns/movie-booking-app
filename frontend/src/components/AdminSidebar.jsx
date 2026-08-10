@@ -1,10 +1,11 @@
-import React from 'react';
+import { createElement } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Film, Monitor, LogOut } from 'lucide-react';
+import { LayoutDashboard, Film, Monitor, LogOut, CalendarClock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import clsx from 'clsx';
 
-const SidebarItem = ({ to, icon: Icon, label }) => {
+const SidebarItem = ({ to, icon, label }) => {
     const location = useLocation();
     const isActive = location.pathname === to;
     return (
@@ -14,7 +15,7 @@ const SidebarItem = ({ to, icon: Icon, label }) => {
                 ? "bg-surfaceHighlight text-white font-medium border-primary/20 shadow-sm"
                 : "text-textMuted hover:bg-surfaceHighlight/50 hover:text-white"
         )}>
-            <Icon size={20} />
+            {createElement(icon, { size: 20 })}
             <span>{label}</span>
         </Link>
     );
@@ -22,6 +23,8 @@ const SidebarItem = ({ to, icon: Icon, label }) => {
 
 const AdminSidebar = () => {
     const { logout } = useAuth();
+    const navigate = useNavigate();
+    const handleLogout = () => { logout(); navigate('/login'); };
 
     return (
         <div className="w-64 bg-surface border-r border-white/5 h-screen flex flex-col p-6 sticky top-0">
@@ -39,10 +42,10 @@ const AdminSidebar = () => {
                 <SidebarItem to="/admin" icon={LayoutDashboard} label="Dashboard" />
                 <SidebarItem to="/admin/movies" icon={Film} label="Movies" />
                 <SidebarItem to="/admin/screens" icon={Monitor} label="Screens" />
-                <SidebarItem to="/admin/showtimes" icon={Film} label="Showtimes" />
+                <SidebarItem to="/admin/showtimes" icon={CalendarClock} label="Showtimes" />
             </nav>
 
-            <button onClick={logout} className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/5 hover:text-red-400 rounded-lg transition-all duration-200 mt-auto group">
+            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/5 hover:text-red-400 rounded-lg transition-all duration-200 mt-auto group">
                 <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
                 <span className="font-medium">Logout</span>
             </button>

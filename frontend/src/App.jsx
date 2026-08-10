@@ -19,6 +19,13 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const AdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== 'ADMIN') return <Navigate to="/dashboard" />;
+  return children;
+};
+
 // Check Dashboard logic: If customer, go to Home. If Admin, go to Admin Dashboard?
 // Or just let "Dashboard" be Home for users.
 const Dashboard = () => {
@@ -36,10 +43,10 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
-          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/movies" element={<ProtectedRoute><AdminMovies /></ProtectedRoute>} />
-          <Route path="/admin/screens" element={<ProtectedRoute><AdminScreens /></ProtectedRoute>} />
-          <Route path="/admin/showtimes" element={<ProtectedRoute><AdminShowtimes /></ProtectedRoute>} />
+          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/movies" element={<AdminRoute><AdminMovies /></AdminRoute>} />
+          <Route path="/admin/screens" element={<AdminRoute><AdminScreens /></AdminRoute>} />
+          <Route path="/admin/showtimes" element={<AdminRoute><AdminShowtimes /></AdminRoute>} />
 
           <Route path="/booking/:showtimeId" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
           <Route path="/movies/:movieId" element={<ProtectedRoute><MovieDetails /></ProtectedRoute>} />
