@@ -6,6 +6,8 @@ const failOnError = ({ error, data }) => {
 };
 
 const seatCount = layout => (layout || []).flat().filter(seat => !['gap', 'blocked', 0].includes(seat)).length;
+const POSTER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+const MAX_POSTER_SIZE = 5 * 1024 * 1024;
 
 export const cinemaApi = {
     async listAdminMovies() {
@@ -17,6 +19,29 @@ export const cinemaApi = {
             ? supabase.from('movies').update(movie).eq('id', id)
             : supabase.from('movies').insert(movie);
         return failOnError(await query.select().single());
+    },
+
+    async uploadMoviePoster(file) {
+        if (!POSTER_TYPES.has(file.type)) {
+            throw new Error('Poster must be a JPG, PNG, WebP, or AVIF image.');
+        }
+        if (file.size > MAX_POSTER_SIZE) {
+            throw new Error('Poster image must be 5 MB or smaller.');
+        }
+
+        const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+        const path = `posters/${crypto.randomUUID()}.${extension}`;
+        const { error } = await supabase.storage
+            .from('movie-posters')
+            .upload(path, file, {
+                cacheControl: '3600',
+                contentType: file.type,
+                upsert: false,
+            });
+        if (error) throw new Error(error.message);
+
+        const { data } = supabase.storage.from('movie-posters').getPublicUrl(path);
+        return data.publicUrl;
     },
 
     async deleteMovie(id) {
