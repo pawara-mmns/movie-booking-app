@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, Clock3, Film, MapPin, Star } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
+import { formatDuration } from '../lib/formatters';
 import { cinemaApi } from '../lib/cinemaApi';
 
 const formatMoney = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
@@ -55,7 +56,7 @@ const MovieDetails = () => {
                             <div className="pt-2">
                                 <div className="flex flex-wrap gap-2 mb-5"><span className="px-3 py-1 rounded-full bg-primary/15 text-primary text-sm font-semibold">{movie.genre}</span><span className="px-3 py-1 rounded-full bg-white/10 text-gray-200 text-sm flex items-center gap-1"><Star size={14} /> {movie.rating}</span></div>
                                 <h1 className="text-4xl md:text-5xl font-bold mb-4">{movie.title}</h1>
-                                <p className="flex items-center gap-2 text-gray-300 mb-6"><Clock3 size={18} /> {movie.duration_mins} minutes</p>
+                                <p className="flex items-center gap-2 text-gray-300 mb-6"><Clock3 size={18} /> {formatDuration(movie.duration_mins)}</p>
                                 <p className="max-w-3xl text-gray-300 text-lg leading-8">{movie.description || 'Movie details will be available soon.'}</p>
                             </div>
                         </div>

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
 import { useAuth } from '../context/AuthContext';
 import { cinemaApi } from '../lib/cinemaApi';
+import { formatDuration } from '../lib/formatters';
 
 const emptyFilters = { genres: [], screens: [], dates: [] };
 const defaultFilterState = { search: '', genre: '', showDate: '', screenId: '' };
@@ -20,7 +21,7 @@ const MovieCard = ({ movie }) => (
             <div className="p-5">
                 <h3 className="truncate text-lg font-bold tracking-[-0.02em] text-white transition-colors group-hover:text-amber-300">{movie.title}</h3>
                 <div className="mt-2 flex items-center justify-between gap-3">
-                    <p className="flex items-center gap-1.5 text-sm text-slate-400"><Clock3 size={15} /> {movie.duration_mins} min</p>
+                    <p className="flex items-center gap-1.5 text-sm text-slate-400"><Clock3 size={15} /> {formatDuration(movie.duration_mins)}</p>
                     <span className="flex items-center gap-1 text-sm font-semibold text-slate-200">Showtimes <ChevronRight size={15} className="transition-transform group-hover:translate-x-0.5" /></span>
                 </div>
             </div>
@@ -120,7 +121,7 @@ const MovieBrowser = () => {
                                     <div key={featuredMovie?.id || 'empty'} className="featured-caption absolute inset-x-0 bottom-0 p-6">
                                         <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-amber-300"><Star size={14} fill="currentColor" /> Featured now</p>
                                         <h2 className="text-2xl font-black tracking-[-0.03em]">{featuredMovie?.title || (loading ? 'Loading the spotlight…' : 'Your next favourite movie')}</h2>
-                                        {featuredMovie && <p className="mt-2 flex items-center gap-3 text-sm text-slate-300"><span>{featuredMovie.genre}</span><span className="h-1 w-1 rounded-full bg-slate-500" /><span>{featuredMovie.duration_mins} min</span></p>}
+                                        {featuredMovie && <p className="mt-2 flex items-center gap-3 text-sm text-slate-300"><span>{featuredMovie.genre}</span><span className="h-1 w-1 rounded-full bg-slate-500" /><span>{formatDuration(featuredMovie.duration_mins)}</span></p>}
                                     </div>
                                     {heroMovies.length > 1 && <><button type="button" onClick={showPreviousSlide} className="absolute left-4 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-black/45 text-white opacity-100 backdrop-blur-md transition-all hover:bg-black/70 sm:opacity-0 sm:group-hover:opacity-100" aria-label="Previous featured movie"><ChevronLeft size={20} /></button><button type="button" onClick={showNextSlide} className="absolute right-4 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-black/45 text-white opacity-100 backdrop-blur-md transition-all hover:bg-black/70 sm:opacity-0 sm:group-hover:opacity-100" aria-label="Next featured movie"><ChevronRight size={20} /></button></>}
                                 </div>
