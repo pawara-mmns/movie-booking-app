@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Film, ImagePlus, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
+import { Clock3, Film, ImagePlus, Link2, Pencil, Plus, Save, Trash2, Upload, X } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import { cinemaApi } from '../lib/cinemaApi';
+import { formatDuration } from '../lib/formatters';
 
 const emptyMovie = { title: '', description: '', duration_mins: 120, poster_url: '', genre: '', rating: 'PG-13' };
+
+const FieldLabel = ({ children, optional = false }) => (
+    <span className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-300">
+        {children}{optional && <small className="font-normal text-slate-600">Optional</small>}
+    </span>
+);
 
 const AdminMovies = () => {
     const [movies, setMovies] = useState([]);
@@ -43,6 +50,7 @@ const AdminMovies = () => {
         resetPosterUpload();
         setShowForm(true);
         setMessage(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const openEdit = movie => {
@@ -57,14 +65,16 @@ const AdminMovies = () => {
 
     const handleSubmit = async event => {
         event.preventDefault();
+        if (formData.duration_mins < 1) {
+            setMessage({ type: 'error', text: 'Movie duration must be at least 1 minute.' });
+            return;
+        }
         setSaving(true);
         setMessage(null);
         try {
-            const posterUrl = posterFile
-                ? await cinemaApi.uploadMoviePoster(posterFile)
-                : formData.poster_url;
+            const posterUrl = posterFile ? await cinemaApi.uploadMoviePoster(posterFile) : formData.poster_url;
             await cinemaApi.saveMovie({ ...formData, poster_url: posterUrl }, editingId);
-            setMessage({ type: 'success', text: editingId ? 'Movie updated successfully.' : 'Movie added successfully.' });
+            setMessage({ type: 'success', text: editingId ? 'Movie updated successfully.' : 'Movie published successfully.' });
             setShowForm(false);
             setEditingId(null);
             setFormData(emptyMovie);
@@ -88,69 +98,93 @@ const AdminMovies = () => {
         setPosterPreview(formData.poster_url);
     };
 
+    const updateDuration = (part, value) => {
+        const currentHours = Math.floor(formData.duration_mins / 60);
+        const currentMinutes = formData.duration_mins % 60;
+        const hours = part === 'hours' ? Math.max(0, Number(value) || 0) : currentHours;
+        const minutes = part === 'minutes' ? Math.min(59, Math.max(0, Number(value) || 0)) : currentMinutes;
+        setFormData({ ...formData, duration_mins: Math.min(600, (hours * 60) + minutes) });
+    };
+
     const deleteMovie = async movie => {
         if (!window.confirm(`Delete “${movie.title}”?`)) return;
         setMessage(null);
         try {
             await cinemaApi.deleteMovie(movie.id);
+            setMessage({ type: 'success', text: 'Movie deleted.' });
+            await fetchMovies();
         } catch (error) {
             setMessage({ type: 'error', text: error.message || 'Could not delete movie' });
-            return;
         }
-        setMessage({ type: 'success', text: 'Movie deleted.' });
-        fetchMovies();
     };
 
     return (
-        <div className="flex min-h-screen bg-background text-white">
+        <div className="flex min-h-screen bg-[#090d14] text-white">
             <AdminSidebar />
-            <main className="flex-1 p-8 overflow-y-auto">
-                <header className="flex flex-wrap justify-between items-center gap-4 mb-7">
-                    <div><h1 className="text-3xl font-bold">Movie Management</h1><p className="text-gray-400 mt-1">These details appear directly in the customer movie catalog.</p></div>
-                    <button onClick={openNew} className="btn-primary flex items-center gap-2"><Plus size={19} /> Add Movie</button>
+            <main className="min-w-0 flex-1 px-5 py-7 sm:px-7 lg:px-10">
+                <header className="mb-7 flex flex-wrap items-end justify-between gap-5">
+                    <div><p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-amber-400">Content library</p><h1 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">Movies</h1><p className="mt-2 text-sm text-slate-400">Add a movie once and use it across every cinema schedule.</p></div>
+                    <button onClick={openNew} className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-amber-300"><Plus size={18} /> Add movie</button>
                 </header>
 
-                {message && <div className={`p-4 rounded-xl border mb-6 ${message.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-200' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'}`}>{message.text}</div>}
+                {message && <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${message.type === 'error' ? 'border-red-400/20 bg-red-400/10 text-red-200' : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'}`}>{message.text}</div>}
 
                 {showForm && (
-                    <section className="glass-panel p-6 mb-8">
-                        <div className="flex justify-between items-center mb-5"><h2 className="text-xl font-bold">{editingId ? 'Edit Movie' : 'Add New Movie'}</h2><button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white"><X /></button></div>
-                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <label><span className="text-sm text-gray-300 block mb-2">Movie title *</span><input className="input-field" value={formData.title} onChange={event => setFormData({ ...formData, title: event.target.value })} required /></label>
-                            <label><span className="text-sm text-gray-300 block mb-2">Poster image URL</span><input type="url" className="input-field" value={formData.poster_url} onChange={event => { setFormData({ ...formData, poster_url: event.target.value }); if (!posterFile) setPosterPreview(event.target.value); }} placeholder="https://..." /></label>
-                            <div className="md:col-span-2 grid md:grid-cols-[180px_1fr] gap-5 items-center rounded-xl border border-white/10 bg-black/15 p-4">
-                                <div className="aspect-[2/3] rounded-lg overflow-hidden bg-slate-900 border border-white/10">
-                                    {posterPreview ? <img src={posterPreview} alt="Poster preview" className="w-full h-full object-cover" /> : <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-600"><ImagePlus size={34} /><span className="text-xs">Poster preview</span></div>}
+                    <section className="mb-10 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#111722] shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+                        <header className="flex items-start justify-between gap-4 border-b border-white/[0.07] px-5 py-5 sm:px-7">
+                            <div><h2 className="text-xl font-black tracking-[-0.02em]">{editingId ? 'Edit movie' : 'Add a new movie'}</h2><p className="mt-1 text-sm text-slate-400">Complete the essentials, add a poster, and publish.</p></div>
+                            <button type="button" onClick={() => setShowForm(false)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white" aria-label="Close movie form"><X size={19} /></button>
+                        </header>
+
+                        <form onSubmit={handleSubmit}>
+                            <div className="grid gap-7 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_260px] xl:gap-10">
+                                <div className="space-y-6">
+                                    <section>
+                                        <h3 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-slate-500">Movie details</h3>
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <label className="md:col-span-2"><FieldLabel>Movie title *</FieldLabel><input autoFocus className="input-field" value={formData.title} onChange={event => setFormData({ ...formData, title: event.target.value })} placeholder="e.g. The Odyssey" required /></label>
+                                            <label><FieldLabel>Genre *</FieldLabel><input className="input-field" value={formData.genre} onChange={event => setFormData({ ...formData, genre: event.target.value })} placeholder="e.g. Action, Adventure" required /></label>
+                                            <label><FieldLabel>Age rating *</FieldLabel><select className="input-field" value={formData.rating} onChange={event => setFormData({ ...formData, rating: event.target.value })}><option>G</option><option>PG</option><option>PG-13</option><option>R</option><option>18+</option></select></label>
+                                        </div>
+                                    </section>
+
+                                    <section className="rounded-2xl border border-white/[0.07] bg-[#0c121b] p-4 sm:p-5">
+                                        <div className="mb-4 flex items-center justify-between gap-4"><div><h3 className="flex items-center gap-2 font-bold"><Clock3 size={17} className="text-amber-400" /> Runtime</h3><p className="mt-1 text-xs text-slate-500">Enter hours and remaining minutes.</p></div><span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-300">{formatDuration(formData.duration_mins)}</span></div>
+                                        <fieldset className="grid grid-cols-2 gap-3"><legend className="sr-only">Movie duration</legend><label><span className="mb-1.5 block text-xs font-semibold text-slate-400">Hours</span><div className="relative"><input type="number" min="0" max="10" className="input-field pr-12" value={Math.floor(formData.duration_mins / 60)} onChange={event => updateDuration('hours', event.target.value)} aria-label="Duration hours" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">hrs</span></div></label><label><span className="mb-1.5 block text-xs font-semibold text-slate-400">Minutes</span><div className="relative"><input type="number" min="0" max="59" className="input-field pr-12" value={formData.duration_mins % 60} onChange={event => updateDuration('minutes', event.target.value)} aria-label="Duration minutes" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">min</span></div></label></fieldset>
+                                    </section>
+
+                                    <label className="block"><FieldLabel optional>Description</FieldLabel><textarea rows="5" className="input-field resize-y" value={formData.description} onChange={event => setFormData({ ...formData, description: event.target.value })} placeholder="Write a short synopsis customers can scan quickly…" /></label>
                                 </div>
-                                <div>
-                                    <p className="font-semibold flex items-center gap-2"><Upload size={18} className="text-primary" /> Upload poster directly</p>
-                                    <p className="text-sm text-gray-400 mt-1 mb-4">Choose JPG, PNG, WebP, or AVIF. Maximum size 5 MB. A selected file takes priority over the URL above.</p>
-                                    <label className="btn-secondary inline-flex items-center gap-2 cursor-pointer">
-                                        <ImagePlus size={17} /> Choose image
-                                        <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={selectPoster} className="sr-only" />
-                                    </label>
-                                    {posterFile && <div className="mt-3 flex items-center gap-3 text-sm"><span className="text-emerald-300 truncate">{posterFile.name}</span><button type="button" onClick={clearPosterSelection} className="text-red-300 hover:text-red-200">Remove</button></div>}
-                                </div>
+
+                                <aside className="lg:border-l lg:border-white/[0.07] lg:pl-7 xl:pl-10">
+                                    <h3 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-slate-500">Movie poster</h3>
+                                    <div className="mx-auto aspect-[2/3] w-full max-w-[220px] overflow-hidden rounded-2xl border border-white/10 bg-[#0c121b] shadow-xl">
+                                        {posterPreview ? <img src={posterPreview} alt="Poster preview" className="h-full w-full object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-center text-slate-600"><ImagePlus size={38} /><div><p className="text-sm font-semibold text-slate-500">Poster preview</p><p className="mt-1 text-xs">2:3 artwork works best</p></div></div>}
+                                    </div>
+                                    <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-amber-300"><Upload size={17} /> {posterFile ? 'Change image' : 'Upload image'}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={selectPoster} className="sr-only" /></label>
+                                    {posterFile && <div className="mt-3 flex items-center justify-between gap-2 text-xs"><span className="truncate text-emerald-300">{posterFile.name}</span><button type="button" onClick={clearPosterSelection} className="shrink-0 text-red-300 hover:text-red-200">Remove</button></div>}
+                                    <div className="my-4 flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600"><span className="h-px flex-1 bg-white/[0.07]" />or use URL<span className="h-px flex-1 bg-white/[0.07]" /></div>
+                                    <label><FieldLabel optional>Poster URL</FieldLabel><span className="relative block"><Link2 size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" /><input type="url" className="input-field pl-9 text-sm" value={formData.poster_url} onChange={event => { setFormData({ ...formData, poster_url: event.target.value }); if (!posterFile) setPosterPreview(event.target.value); }} placeholder="https://…" /></span></label>
+                                    <p className="mt-3 text-xs leading-5 text-slate-600">JPG, PNG, WebP or AVIF. Maximum 5 MB.</p>
+                                </aside>
                             </div>
-                            <label><span className="text-sm text-gray-300 block mb-2">Genre *</span><input className="input-field" value={formData.genre} onChange={event => setFormData({ ...formData, genre: event.target.value })} placeholder="Action, Drama" required /></label>
-                            <label><span className="text-sm text-gray-300 block mb-2">Duration (minutes) *</span><input type="number" min="1" max="600" className="input-field" value={formData.duration_mins} onChange={event => setFormData({ ...formData, duration_mins: Number(event.target.value) })} required /></label>
-                            <label><span className="text-sm text-gray-300 block mb-2">Age rating *</span><select className="input-field" value={formData.rating} onChange={event => setFormData({ ...formData, rating: event.target.value })}><option>G</option><option>PG</option><option>PG-13</option><option>R</option><option>18+</option></select></label>
-                            <label className="md:col-span-2"><span className="text-sm text-gray-300 block mb-2">Description</span><textarea rows="4" className="input-field resize-y" value={formData.description} onChange={event => setFormData({ ...formData, description: event.target.value })} /></label>
-                            <div className="md:col-span-2 flex justify-end gap-3"><button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button><button disabled={saving} className="btn-primary">{saving ? posterFile ? 'Uploading poster...' : 'Saving...' : editingId ? 'Update Movie' : 'Publish Movie'}</button></div>
+
+                            <footer className="flex flex-col-reverse gap-3 border-t border-white/[0.07] bg-[#0d131d] px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-7">
+                                <button type="button" onClick={() => setShowForm(false)} className="rounded-xl px-5 py-3 text-sm font-bold text-slate-400 transition-colors hover:bg-white/[0.05] hover:text-white">Cancel</button>
+                                <button disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60">{saving ? posterFile ? 'Uploading poster…' : 'Saving…' : <><Save size={17} /> {editingId ? 'Save changes' : 'Publish movie'}</>}</button>
+                            </footer>
                         </form>
                     </section>
                 )}
 
-                {loading ? <div className="py-20 text-center text-gray-400">Loading movies...</div> : movies.length === 0 ? <div className="glass-panel py-20 text-center"><Film className="mx-auto text-gray-600 mb-3" size={42} /><p className="text-gray-400">No movies added yet.</p></div> : (
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                        {movies.map(movie => (
-                            <article key={movie.id} className="glass-panel p-4 flex gap-5">
-                                <div className="w-28 h-40 rounded-lg bg-slate-900 overflow-hidden shrink-0">{movie.poster_url ? <img src={movie.poster_url} className="w-full h-full object-cover" alt={movie.title} /> : <div className="h-full flex items-center justify-center"><Film className="text-gray-700" /></div>}</div>
-                                <div className="min-w-0 flex-1"><div className="flex justify-between gap-3"><div><h3 className="font-bold text-xl truncate">{movie.title}</h3><p className="text-sm text-primary mt-1">{movie.genre} · {movie.duration_mins} min · {movie.rating}</p></div><div className="flex gap-2"><button onClick={() => openEdit(movie)} className="p-2 text-gray-400 hover:text-primary" title="Edit"><Pencil size={18} /></button><button onClick={() => deleteMovie(movie)} className="p-2 text-gray-400 hover:text-red-400" title="Delete"><Trash2 size={18} /></button></div></div><p className="text-gray-400 text-sm mt-4 line-clamp-3">{movie.description || 'No description provided.'}</p></div>
-                            </article>
-                        ))}
-                    </div>
-                )}
+                <section>
+                    <div className="mb-5 flex items-end justify-between gap-4"><div><h2 className="text-xl font-black tracking-[-0.02em]">Movie library</h2><p className="mt-1 text-sm text-slate-500">{movies.length} movie{movies.length === 1 ? '' : 's'} ready to schedule</p></div>{!showForm && <button onClick={openNew} className="hidden items-center gap-2 text-sm font-bold text-amber-400 hover:text-amber-300 sm:flex"><Plus size={16} /> Add another</button>}</div>
+                    {loading ? <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-40 animate-pulse rounded-2xl bg-white/[0.05]" />)}</div> : movies.length === 0 ? <div className="rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center"><Film className="mx-auto mb-3 text-slate-700" size={40} /><h3 className="font-bold">No movies yet</h3><p className="mt-2 text-sm text-slate-500">Add your first movie to start building showtimes.</p><button onClick={openNew} className="mt-5 rounded-xl bg-amber-400 px-5 py-2.5 text-sm font-black text-slate-950">Add first movie</button></div> : (
+                        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                            {movies.map(movie => <article key={movie.id} className="group flex min-w-0 gap-4 rounded-2xl border border-white/[0.07] bg-[#111722] p-3 transition-colors hover:border-white/[0.14]"><div className="h-32 w-[86px] shrink-0 overflow-hidden rounded-xl bg-[#0c121b]">{movie.poster_url ? <img src={movie.poster_url} className="h-full w-full object-cover" alt={movie.title} /> : <div className="grid h-full place-items-center"><Film className="text-slate-700" /></div>}</div><div className="flex min-w-0 flex-1 flex-col py-1"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="truncate font-black text-white">{movie.title}</h3><p className="mt-1 truncate text-xs font-semibold text-amber-400">{movie.genre}</p></div><div className="flex shrink-0"><button onClick={() => openEdit(movie)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-amber-300" title="Edit movie"><Pencil size={15} /></button><button onClick={() => deleteMovie(movie)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-red-400/10 hover:text-red-300" title="Delete movie"><Trash2 size={15} /></button></div></div><p className="mt-3 text-xs text-slate-400">{formatDuration(movie.duration_mins)} <span className="mx-1 text-slate-700">•</span> {movie.rating}</p><p className="mt-auto line-clamp-2 text-xs leading-5 text-slate-500">{movie.description || 'No description provided.'}</p></div></article>)}
+                        </div>
+                    )}
+                </section>
             </main>
         </div>
     );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, CalendarDays, Clock3, Plus, Trash2, X } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import { cinemaApi } from '../lib/cinemaApi';
+import { formatDuration } from '../lib/formatters';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 const emptyDay = () => ({ date: '', times: [''] });
@@ -111,7 +112,7 @@ const AdminShowtimes = () => {
                     {(movies.length === 0 || screens.length === 0) && <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-200 rounded-lg mb-5">Add at least one movie and one cinema screen before scheduling showtimes.</div>}
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid md:grid-cols-3 gap-4">
-                            <label><span className="text-sm text-gray-300 block mb-2">Movie *</span><select className="input-field" value={movieId} onChange={event => setMovieId(event.target.value)} required><option value="">Select movie</option>{movies.map(movie => <option key={movie.id} value={movie.id}>{movie.title} ({movie.duration_mins} min)</option>)}</select></label>
+                            <label><span className="text-sm text-gray-300 block mb-2">Movie *</span><select className="input-field" value={movieId} onChange={event => setMovieId(event.target.value)} required><option value="">Select movie</option>{movies.map(movie => <option key={movie.id} value={movie.id}>{movie.title} ({formatDuration(movie.duration_mins)})</option>)}</select></label>
                             <label><span className="text-sm text-gray-300 block mb-2">Cinema / screen *</span><select className="input-field" value={screenId} onChange={event => setScreenId(event.target.value)} required><option value="">Select screen</option>{screens.map(screen => <option key={screen.id} value={screen.id}>{screen.name}</option>)}</select></label>
                             <label><span className="text-sm text-gray-300 block mb-2">Ticket price (LKR) *</span><input type="number" min="1" step="0.01" className="input-field" value={price} onChange={event => setPrice(event.target.value)} required /></label>
                         </div>
