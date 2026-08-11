@@ -3,10 +3,11 @@ uvicorn
 sqlalchemy
 pydantic
 pydantic-settings
+python-dotenv
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
-# For PostgreSQL later, but we install it now or use asyncpg
+# Supabase PostgreSQL async driver
 asyncpg
 greenlet
 # Redis client
