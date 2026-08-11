@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Film, Pencil, Plus, Trash2, X } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
-import { useAuth } from '../context/AuthContext';
+import { cinemaApi } from '../lib/cinemaApi';
 
 const emptyMovie = { title: '', description: '', duration_mins: 120, poster_url: '', genre: '', rating: 'PG-13' };
 
 const AdminMovies = () => {
-    const { user } = useAuth();
     const [movies, setMovies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState(null);
@@ -15,20 +14,16 @@ const AdminMovies = () => {
     const [message, setMessage] = useState(null);
     const [saving, setSaving] = useState(false);
 
-    const authHeaders = useCallback(() => ({ Authorization: `Bearer ${user.token}` }), [user.token]);
-
     const fetchMovies = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/admin/movies', { headers: authHeaders() });
-            if (!response.ok) throw new Error('Could not load movies');
-            setMovies(await response.json());
+            setMovies(await cinemaApi.listAdminMovies());
         } catch (error) {
             setMessage({ type: 'error', text: error.message });
         } finally {
             setLoading(false);
         }
-    }, [authHeaders]);
+    }, []);
 
     useEffect(() => { fetchMovies(); }, [fetchMovies]);
 
@@ -52,13 +47,7 @@ const AdminMovies = () => {
         setSaving(true);
         setMessage(null);
         try {
-            const response = await fetch(editingId ? `/api/admin/movies/${editingId}` : '/api/admin/movies', {
-                method: editingId ? 'PUT' : 'POST',
-                headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-            const data = response.status === 204 ? null : await response.json();
-            if (!response.ok) throw new Error(data?.detail || 'Could not save movie');
+            await cinemaApi.saveMovie(formData, editingId);
             setMessage({ type: 'success', text: editingId ? 'Movie updated successfully.' : 'Movie added successfully.' });
             setShowForm(false);
             setEditingId(null);
@@ -74,10 +63,10 @@ const AdminMovies = () => {
     const deleteMovie = async movie => {
         if (!window.confirm(`Delete “${movie.title}”?`)) return;
         setMessage(null);
-        const response = await fetch(`/api/admin/movies/${movie.id}`, { method: 'DELETE', headers: authHeaders() });
-        if (!response.ok) {
-            const data = await response.json();
-            setMessage({ type: 'error', text: data.detail || 'Could not delete movie' });
+        try {
+            await cinemaApi.deleteMovie(movie.id);
+        } catch (error) {
+            setMessage({ type: 'error', text: error.message || 'Could not delete movie' });
             return;
         }
         setMessage({ type: 'success', text: 'Movie deleted.' });

@@ -1,20 +1,26 @@
-# promote_admin.py
-import sqlite3
-import os
+import argparse
+import asyncio
 
-db_path = "app/cinesphere.db" 
+from sqlalchemy import update
 
-if not os.path.exists(db_path):
-    # Try finding it?
-    # Usually in backend/cinesphere.db
-    db_path = "cinesphere.db"
+from app.database import AsyncSessionLocal
+from app.models import User
 
-try:
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'")
-    conn.commit()
-    print(f"Updated {cursor.rowcount} rows. Admin promoted.")
-    conn.close()
-except Exception as e:
-    print(e)
+
+async def promote(email: str) -> None:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            update(User).where(User.email == email).values(role="ADMIN")
+        )
+        await session.commit()
+    if result.rowcount:
+        print(f"Promoted {email} to ADMIN in Supabase.")
+    else:
+        print(f"No user found for {email}.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Promote a CineSphere user to admin")
+    parser.add_argument("email", nargs="?", default="admin@test.com")
+    args = parser.parse_args()
+    asyncio.run(promote(args.email))

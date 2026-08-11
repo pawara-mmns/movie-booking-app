@@ -2,7 +2,7 @@ import { createElement, useCallback, useEffect, useState } from 'react';
 import { CalendarClock, DollarSign, Film, Monitor, Plus, RefreshCw, Ticket, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminSidebar from '../components/AdminSidebar';
-import { useAuth } from '../context/AuthContext';
+import { cinemaApi } from '../lib/cinemaApi';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 const initialStats = { customers: 0, movies: 0, active_showtimes: 0, confirmed_bookings: 0, tickets_sold: 0, revenue: 0, recent_bookings: [] };
@@ -12,7 +12,6 @@ const StatCard = ({ title, value, icon, color = 'text-primary' }) => (
 );
 
 const AdminDashboard = () => {
-    const { user } = useAuth();
     const [stats, setStats] = useState(initialStats);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -21,15 +20,13 @@ const AdminDashboard = () => {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch('/api/admin/dashboard', { headers: { Authorization: `Bearer ${user.token}` } });
-            if (!response.ok) throw new Error('Could not load dashboard data');
-            setStats(await response.json());
+            setStats(await cinemaApi.getDashboard());
         } catch (requestError) {
             setError(requestError.message);
         } finally {
             setLoading(false);
         }
-    }, [user.token]);
+    }, []);
 
     useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
