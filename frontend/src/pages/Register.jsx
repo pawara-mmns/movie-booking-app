@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { ArrowRight, Check, Loader, LockKeyhole, Mail } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import AuthLayout from '../components/AuthLayout';
 import { useAuth } from '../context/AuthContext';
-import { Film, Loader, ArrowRight } from 'lucide-react';
-import { motion as Motion } from 'framer-motion';
 
 const Register = () => {
     const [email, setEmail] = useState('');
@@ -16,134 +16,39 @@ const Register = () => {
     const requestedPath = searchParams.get('returnTo');
     const destination = requestedPath?.startsWith('/') && !requestedPath.startsWith('//') ? requestedPath : '/dashboard';
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async event => {
+        event.preventDefault();
         setError('');
-
         if (password !== confirmPassword) {
-            return setError("Passwords do not match");
+            setError('Passwords do not match');
+            return;
         }
-
         setLoading(true);
         try {
             await register(email, password);
-            navigate(destination);
-        } catch (err) {
-            setError(err.message || 'Failed to register');
+            navigate(destination, { replace: true });
+        } catch (requestError) {
+            setError(requestError.message || 'Failed to create your account');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex text-white">
-            {/* Left Side - Hero Image */}
-            <Motion.div
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
-                className="hidden lg:flex lg:w-1/2 relative bg-black items-center justify-center overflow-hidden"
-            >
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2059&auto=format&fit=crop')] bg-cover bg-center opacity-60"></div>
-                <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent"></div>
-                <div className="relative z-10 p-12 max-w-lg">
-                    <Film className="w-16 h-16 text-secondary mb-6 animate-pulse-glow" />
-                    <h1 className="text-5xl font-bold mb-6 leading-tight">
-                        Join the <span className="text-gradient">Revolution</span> <br />
-                        of Cinema
-                    </h1>
-                    <p className="text-xl text-gray-300 leading-relaxed">
-                        Create your account today and unlock a world of exclusive premieres, seamless booking, and VIP experiences.
-                    </p>
-                </div>
-            </Motion.div>
+        <AuthLayout image="https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=1800&auto=format&fit=crop" eyebrow="Join CineSphere" title="Great seats should never be complicated." description="Create your free account and move from browsing to a confirmed cinema booking in just a few taps.">
+            <div className="mb-7"><p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">Free membership</p><h2 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Create your account</h2><p className="mt-3 text-sm leading-6 text-slate-400">Use an email you can access and choose a secure password.</p></div>
 
-            {/* Right Side - Register Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background relative">
-                {/* Background Decor */}
-                <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-                <div className="absolute top-0 left-0 w-64 h-64 bg-secondary/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+            {error && <div role="alert" className="mb-5 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
 
-                <Motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                    className="w-full max-w-md"
-                >
-                    <div className="mb-8">
-                        <h2 className="text-3xl font-bold mb-2">Create Account</h2>
-                        <p className="text-gray-400">Start your cinematic journey with us.</p>
-                    </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-300">Email address</span><span className="relative block"><Mail size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="email" autoComplete="email" className="h-12 w-full rounded-xl border border-white/10 bg-[#0d131d] pl-11 pr-4 text-white outline-none transition-colors placeholder:text-slate-600 focus:border-amber-400/60" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} required /></span></label>
+                <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-300">Password</span><span className="relative block"><LockKeyhole size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="password" autoComplete="new-password" minLength="6" className="h-12 w-full rounded-xl border border-white/10 bg-[#0d131d] pl-11 pr-4 text-white outline-none transition-colors placeholder:text-slate-600 focus:border-amber-400/60" placeholder="At least 6 characters" value={password} onChange={event => setPassword(event.target.value)} required /></span></label>
+                <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-300">Confirm password</span><span className="relative block"><Check size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="password" autoComplete="new-password" minLength="6" className="h-12 w-full rounded-xl border border-white/10 bg-[#0d131d] pl-11 pr-4 text-white outline-none transition-colors placeholder:text-slate-600 focus:border-amber-400/60" placeholder="Repeat your password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} required /></span></label>
+                <button type="submit" disabled={loading} className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 transition-all hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60">{loading ? <><Loader size={19} className="animate-spin" /> Creating account…</> : <>Create account <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" /></>}</button>
+            </form>
 
-                    {error && (
-                        <Motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="bg-accent/10 border border-accent/20 text-accent p-3 rounded-lg mb-6 text-sm flex items-center gap-2"
-                        >
-                            <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
-                            {error}
-                        </Motion.div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="space-y-1">
-                            <label className="text-sm font-medium text-gray-300 ml-1">Email Address</label>
-                            <input
-                                type="email"
-                                className="input-field"
-                                placeholder="name@example.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-sm font-medium text-gray-300 ml-1">Password</label>
-                            <input
-                                type="password"
-                                className="input-field"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-sm font-medium text-gray-300 ml-1">Confirm Password</label>
-                            <input
-                                type="password"
-                                className="input-field"
-                                placeholder="••••••••"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full btn-primary flex justify-center items-center gap-2 mt-4 group"
-                        >
-                            {loading ? <Loader className="animate-spin w-5 h-5" /> : (
-                                <>
-                                    Create Account
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </>
-                            )}
-                        </button>
-                    </form>
-
-                    <p className="mt-8 text-center text-gray-400 text-sm">
-                        Already have an account?{' '}
-                        <Link to={`/login?returnTo=${encodeURIComponent(destination)}`} className="text-secondary font-medium hover:underline underline-offset-4">
-                            Sign in instead
-                        </Link>
-                    </p>
-                </Motion.div>
-            </div>
-        </div>
+            <p className="mt-6 text-center text-sm text-slate-400">Already have an account? <Link to={`/login?returnTo=${encodeURIComponent(destination)}`} className="font-bold text-amber-400 hover:text-amber-300">Sign in instead</Link></p>
+        </AuthLayout>
     );
 };
 
