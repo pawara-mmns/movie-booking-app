@@ -13,13 +13,15 @@ import MovieDetails from './pages/MovieDetails';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen bg-background text-white flex items-center justify-center">Loading session...</div>;
   if (!user) return <Navigate to="/login" />;
   return children;
 };
 
 const AdminRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen bg-background text-white flex items-center justify-center">Loading session...</div>;
   if (!user) return <Navigate to="/login" />;
   if (user.role !== 'ADMIN') return <Navigate to="/dashboard" />;
   return children;
