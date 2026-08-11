@@ -11,7 +11,7 @@ const CustomerHeader = () => {
     const handleLogout = async () => {
         await logout();
         setMenuOpen(false);
-        navigate('/login');
+        navigate('/', { replace: true });
     };
 
     const homePath = user ? '/dashboard' : '/';

@@ -24,7 +24,10 @@ const SidebarItem = ({ to, icon, label }) => {
 const AdminSidebar = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
-    const handleLogout = () => { logout(); navigate('/login'); };
+    const handleLogout = async () => {
+        await logout();
+        navigate('/', { replace: true });
+    };
 
     return (
         <div className="w-64 bg-surface border-r border-white/5 h-screen flex flex-col p-6 sticky top-0">

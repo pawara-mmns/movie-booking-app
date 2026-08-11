@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Clock3, Film, MapPin, Search, Sparkles, Star, Ticket } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
+import { useAuth } from '../context/AuthContext';
 import { cinemaApi } from '../lib/cinemaApi';
 
 const emptyFilters = { genres: [], screens: [], dates: [] };
@@ -28,6 +29,7 @@ const MovieCard = ({ movie }) => (
 );
 
 const MovieBrowser = () => {
+    const { user } = useAuth();
     const [movies, setMovies] = useState([]);
     const [heroMovies, setHeroMovies] = useState([]);
     const [activeSlide, setActiveSlide] = useState(0);
@@ -100,7 +102,7 @@ const MovieBrowser = () => {
                             <p className="mt-7 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">Discover what’s playing, choose the perfect showtime, and reserve your favourite seats in just a few taps.</p>
                             <div className="mt-9 flex flex-wrap gap-3">
                                 <a href="#movies" className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3.5 font-bold text-slate-950 transition-all hover:bg-amber-300 hover:shadow-[0_12px_35px_rgba(245,158,11,0.22)]"><Ticket size={18} /> Explore movies</a>
-                                {featuredMovie && <Link to={`/movies/${featuredMovie.id}`} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-6 py-3.5 font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/[0.09]">Featured show <ArrowRight size={18} /></Link>}
+                                {user && featuredMovie ? <Link to={`/movies/${featuredMovie.id}`} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-6 py-3.5 font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/[0.09]">Featured show <ArrowRight size={18} /></Link> : !user && <Link to="/register" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-6 py-3.5 font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/[0.09]">Create free account <ArrowRight size={18} /></Link>}
                             </div>
                             <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/[0.08] pt-7 text-sm text-slate-400">
                                 <span className="flex items-center gap-2"><Film size={16} className="text-amber-400" /> {loading ? '—' : movies.length} movies showing</span>
@@ -156,6 +158,22 @@ const MovieBrowser = () => {
                         {!error && !loading && movies.length > 0 && <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:gap-6">{movies.map(movie => <MovieCard key={movie.id} movie={movie} />)}</div>}
                     </div>
                 </section>
+
+                {!user && <section className="px-5 pb-16 sm:px-8 lg:pb-24">
+                    <div className="relative mx-auto grid max-w-7xl overflow-hidden rounded-[32px] border border-amber-300/15 bg-[linear-gradient(120deg,#17130b_0%,#111722_55%,#0d1622_100%)] px-6 py-10 shadow-[0_30px_90px_rgba(0,0,0,0.25)] sm:px-10 lg:grid-cols-[1fr_auto] lg:items-center lg:px-14 lg:py-14">
+                        <div className="absolute right-[-8%] top-[-80%] h-80 w-80 rounded-full bg-amber-400/10 blur-3xl" />
+                        <div className="relative max-w-2xl">
+                            <span className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">Make every movie night yours</span>
+                            <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl">Create an account. Keep the perfect seats.</h2>
+                            <p className="mt-4 max-w-xl leading-7 text-slate-300">Sign up once to hold seats in real time, confirm bookings securely, and get your booking reference instantly.</p>
+                            <div className="mt-7 flex flex-wrap gap-3"><Link to="/register" className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3 font-bold text-slate-950 transition-colors hover:bg-amber-300"><Ticket size={18} /> Join CineSphere</Link><Link to="/login" className="inline-flex items-center gap-2 rounded-full px-5 py-3 font-semibold text-slate-200 transition-colors hover:bg-white/[0.06]">Already a member? Sign in <ArrowRight size={17} /></Link></div>
+                        </div>
+                        <div className="relative mt-10 hidden h-44 w-72 lg:block" aria-hidden="true">
+                            <div className="absolute right-8 top-0 h-36 w-56 rotate-6 rounded-2xl border border-white/10 bg-white/[0.05]" />
+                            <div className="absolute bottom-0 right-14 flex h-36 w-56 -rotate-3 flex-col justify-between rounded-2xl border border-amber-300/25 bg-[#121823] p-5 shadow-2xl"><div className="flex items-center justify-between"><Film className="text-amber-400" /><span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Admit one</span></div><div><p className="font-black text-white">CineSphere</p><p className="mt-1 text-xs text-slate-400">Your best seat is waiting.</p></div></div>
+                        </div>
+                    </div>
+                </section>}
 
                 <section className="border-y border-white/[0.06] bg-[#0c111a]">
                     <div className="mx-auto grid max-w-7xl gap-6 px-5 py-14 sm:px-8 md:grid-cols-3">
