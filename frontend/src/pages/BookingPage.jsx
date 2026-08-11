@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
 import SeatSelection from '../components/SeatSelection';
 import { useAuth } from '../context/AuthContext';
+import { cinemaApi } from '../lib/cinemaApi';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 
@@ -21,10 +22,7 @@ const BookingPage = () => {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/bookings/showtime/${showtimeId}`);
-            if (response.status === 404) throw new Error('Showtime not found');
-            if (!response.ok) throw new Error('Could not load seat availability');
-            setShowtime(await response.json());
+            setShowtime(await cinemaApi.getShowtime(showtimeId));
         } catch (requestError) {
             setError(requestError.message);
         } finally {
@@ -37,17 +35,9 @@ const BookingPage = () => {
     const normalizedLayout = useMemo(() => showtime?.seat_configuration.map(row => row.map(seat => typeof seat === 'string' ? seat : ({ 0: 'gap', 1: 'standard', 2: 'vip' }[seat] || 'standard'))) || [], [showtime]);
     const unavailableSeats = useMemo(() => [...new Set([...(showtime?.booked_seats || []), ...(showtime?.locked_seats || [])])], [showtime]);
 
-    const requestSeat = async (endpoint, row, col) => {
-        const response = await fetch(`/api/bookings/${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-            body: JSON.stringify({ showtime_id: Number(showtimeId), row, col }),
-        });
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.detail || 'Seat is unavailable');
-        }
-    };
+    const requestSeat = (endpoint, row, col) => endpoint === 'lock'
+        ? cinemaApi.holdSeat(showtimeId, row, col)
+        : cinemaApi.releaseSeat(showtimeId, row, col);
 
     const handleBooking = async () => {
         if (bookingData.seats.length === 0) return;
@@ -58,13 +48,7 @@ const BookingPage = () => {
 
         setProcessing(true);
         try {
-            const response = await fetch('/api/bookings/book', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-                body: JSON.stringify({ showtime_id: Number(showtimeId), seats: bookingData.seats.map(seat => seat.split('-').map(Number)) }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Booking failed');
+            const data = await cinemaApi.createBooking(showtimeId, bookingData.seats);
             window.alert(`Booking confirmed! Reference: ${data.reference}`);
             navigate('/dashboard');
         } catch (requestError) {

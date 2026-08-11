@@ -2,21 +2,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { Armchair, Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import SeatLayoutEditor from '../components/SeatLayoutEditor';
-import { useAuth } from '../context/AuthContext';
+import { cinemaApi } from '../lib/cinemaApi';
 
 const AdminScreens = () => {
-    const { user } = useAuth();
     const [screens, setScreens] = useState([]);
     const [selected, setSelected] = useState(null);
     const [editorVersion, setEditorVersion] = useState(0);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
-    const headers = useCallback(() => ({ Authorization: `Bearer ${user.token}` }), [user.token]);
-
     const loadScreens = useCallback(async () => {
-        const response = await fetch('/api/admin/screens', { headers: headers() });
-        if (response.ok) setScreens(await response.json());
-    }, [headers]);
+        try {
+            setScreens(await cinemaApi.listScreens());
+        } catch (error) {
+            setMessage({ type: 'error', text: error.message });
+        }
+    }, []);
 
     useEffect(() => { loadScreens(); }, [loadScreens]);
 
@@ -27,9 +27,7 @@ const AdminScreens = () => {
         setSaving(true);
         setMessage(null);
         try {
-            const response = await fetch(selected ? `/api/admin/screens/${selected.id}` : '/api/admin/screens', { method: selected ? 'PUT' : 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name, seat_configuration: seatConfiguration }) });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Could not save screen');
+            const data = await cinemaApi.saveScreen({ name, seat_configuration: seatConfiguration }, selected?.id);
             setMessage({ type: 'success', text: selected ? 'Screen updated successfully.' : 'Screen created successfully.' });
             setSelected(data);
             await loadScreens();
@@ -42,10 +40,10 @@ const AdminScreens = () => {
 
     const deleteScreen = async screen => {
         if (!window.confirm(`Delete “${screen.name}”?`)) return;
-        const response = await fetch(`/api/admin/screens/${screen.id}`, { method: 'DELETE', headers: headers() });
-        if (!response.ok) {
-            const data = await response.json();
-            setMessage({ type: 'error', text: data.detail || 'Could not delete screen' });
+        try {
+            await cinemaApi.deleteScreen(screen.id);
+        } catch (error) {
+            setMessage({ type: 'error', text: error.message || 'Could not delete screen' });
             return;
         }
         if (selected?.id === screen.id) newScreen();

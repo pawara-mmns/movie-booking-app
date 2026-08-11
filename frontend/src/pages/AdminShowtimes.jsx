@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, CalendarDays, Clock3, Plus, Trash2, X } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
-import { useAuth } from '../context/AuthContext';
+import { cinemaApi } from '../lib/cinemaApi';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 const emptyDay = () => ({ date: '', times: [''] });
@@ -14,7 +14,6 @@ const localDateValue = date => {
 };
 
 const AdminShowtimes = () => {
-    const { user } = useAuth();
     const [movies, setMovies] = useState([]);
     const [screens, setScreens] = useState([]);
     const [showtimes, setShowtimes] = useState([]);
@@ -24,24 +23,22 @@ const AdminShowtimes = () => {
     const [scheduleDays, setScheduleDays] = useState([emptyDay()]);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
-    const headers = useCallback(() => ({ Authorization: `Bearer ${user.token}` }), [user.token]);
     const minimumDate = useMemo(() => localDateValue(new Date()), []);
 
     const loadData = useCallback(async () => {
         try {
-            const [movieResponse, screenResponse, showtimeResponse] = await Promise.all([
-                fetch('/api/admin/movies', { headers: headers() }),
-                fetch('/api/admin/screens', { headers: headers() }),
-                fetch('/api/admin/showtimes', { headers: headers() }),
+            const [movieData, screenData, showtimeData] = await Promise.all([
+                cinemaApi.listAdminMovies(),
+                cinemaApi.listScreens(),
+                cinemaApi.listShowtimes(),
             ]);
-            if (!movieResponse.ok || !screenResponse.ok || !showtimeResponse.ok) throw new Error('Could not load showtime data');
-            setMovies(await movieResponse.json());
-            setScreens(await screenResponse.json());
-            setShowtimes(await showtimeResponse.json());
+            setMovies(movieData);
+            setScreens(screenData);
+            setShowtimes(showtimeData);
         } catch (error) {
             setMessage({ type: 'error', text: error.message });
         }
-    }, [headers]);
+    }, []);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -74,14 +71,13 @@ const AdminShowtimes = () => {
         setSaving(true);
         setMessage(null);
         try {
-            const response = await fetch('/api/admin/showtimes/bulk', {
-                method: 'POST',
-                headers: { ...headers(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ movie_id: Number(movieId), screen_id: Number(screenId), price: Math.round(Number(price) * 100), showtimes: slots }),
+            const createdCount = await cinemaApi.createShowtimes({
+                movieId: Number(movieId),
+                screenId: Number(screenId),
+                price: Math.round(Number(price) * 100),
+                slots,
             });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Could not publish showtimes');
-            setMessage({ type: 'success', text: `${data.created_count} showtime${data.created_count === 1 ? '' : 's'} published successfully. Customers can now see them.` });
+            setMessage({ type: 'success', text: `${createdCount} showtime${createdCount === 1 ? '' : 's'} published successfully. Customers can now see them.` });
             setScheduleDays([emptyDay()]);
             await loadData();
         } catch (error) {
@@ -93,10 +89,10 @@ const AdminShowtimes = () => {
 
     const deleteShowtime = async showtime => {
         if (!window.confirm(`Delete the ${showtime.movie_title} showtime?`)) return;
-        const response = await fetch(`/api/admin/showtimes/${showtime.id}`, { method: 'DELETE', headers: headers() });
-        if (!response.ok) {
-            const data = await response.json();
-            setMessage({ type: 'error', text: data.detail || 'Could not delete showtime' });
+        try {
+            await cinemaApi.deleteShowtime(showtime.id);
+        } catch (error) {
+            setMessage({ type: 'error', text: error.message || 'Could not delete showtime' });
             return;
         }
         setMessage({ type: 'success', text: 'Showtime deleted.' });

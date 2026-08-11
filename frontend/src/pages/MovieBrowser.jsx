@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, Clock3, Film, Search, SlidersHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
+import { cinemaApi } from '../lib/cinemaApi';
 
 const emptyFilters = { genres: [], screens: [], dates: [] };
 
@@ -13,45 +14,37 @@ const MovieBrowser = () => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const controller = new AbortController();
+        let active = true;
         const loadFilters = async () => {
             try {
-                const response = await fetch('/api/movies/filters', { signal: controller.signal });
-                if (!response.ok) throw new Error('Could not load movie filters');
-                setFilterOptions(await response.json());
+                const data = await cinemaApi.getCatalogFilters();
+                if (active) setFilterOptions(data);
             } catch (requestError) {
-                if (requestError.name !== 'AbortError') setError(requestError.message);
+                if (active) setError(requestError.message);
             }
         };
         loadFilters();
-        return () => controller.abort();
+        return () => { active = false; };
     }, []);
 
     useEffect(() => {
-        const controller = new AbortController();
+        let active = true;
         const timer = setTimeout(async () => {
             setLoading(true);
             setError('');
-            const params = new URLSearchParams();
-            if (filters.search.trim()) params.set('search', filters.search.trim());
-            if (filters.genre) params.set('genre', filters.genre);
-            if (filters.showDate) params.set('show_date', filters.showDate);
-            if (filters.screenId) params.set('screen_id', filters.screenId);
-
             try {
-                const response = await fetch(`/api/movies?${params}`, { signal: controller.signal });
-                if (!response.ok) throw new Error('Could not load movies');
-                setMovies(await response.json());
+                const data = await cinemaApi.listNowShowing(filters);
+                if (active) setMovies(data);
             } catch (requestError) {
-                if (requestError.name !== 'AbortError') setError(requestError.message);
+                if (active) setError(requestError.message);
             } finally {
-                if (!controller.signal.aborted) setLoading(false);
+                if (active) setLoading(false);
             }
         }, 250);
 
         return () => {
             clearTimeout(timer);
-            controller.abort();
+            active = false;
         };
     }, [filters]);
 

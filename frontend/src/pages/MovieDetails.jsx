@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, Clock3, Film, MapPin, Star } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
+import { cinemaApi } from '../lib/cinemaApi';
 
 const formatMoney = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 
@@ -14,23 +15,21 @@ const MovieDetails = () => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const controller = new AbortController();
+        let active = true;
         const loadMovie = async () => {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch(`/api/movies/${movieId}`, { signal: controller.signal });
-                if (response.status === 404) throw new Error('Movie not found');
-                if (!response.ok) throw new Error('Could not load movie details');
-                setMovie(await response.json());
+                const data = await cinemaApi.getMovie(movieId);
+                if (active) setMovie(data);
             } catch (requestError) {
-                if (requestError.name !== 'AbortError') setError(requestError.message);
+                if (active) setError(requestError.message);
             } finally {
-                if (!controller.signal.aborted) setLoading(false);
+                if (active) setLoading(false);
             }
         };
         loadMovie();
-        return () => controller.abort();
+        return () => { active = false; };
     }, [movieId]);
 
     const dates = useMemo(() => movie ? [...new Set(movie.showtimes.map(show => show.start_time.slice(0, 10)))] : [], [movie]);
