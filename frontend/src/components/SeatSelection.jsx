@@ -6,6 +6,7 @@ const SEAT_COLORS = {
     standard: 'bg-sky-500/35 hover:bg-sky-500/80',
     vip: 'bg-primary/55 hover:bg-primary',
     couple: 'bg-pink-500/45 hover:bg-pink-500/80',
+    accessible: 'bg-emerald-500/45 hover:bg-emerald-500/80',
     blocked: 'bg-gray-800 cursor-not-allowed opacity-40',
     unavailable: 'bg-red-900/60 cursor-not-allowed text-white/20',
     selected: 'bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.5)]',
@@ -60,6 +61,7 @@ const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, onBookingChan
                 <span className="flex items-center gap-2"><i className="w-4 h-4 rounded-sm bg-sky-500/35" /> Standard</span>
                 <span className="flex items-center gap-2"><i className="w-4 h-4 rounded-sm bg-primary/55" /> VIP</span>
                 <span className="flex items-center gap-2"><i className="w-4 h-4 rounded-sm bg-pink-500/45" /> Couple</span>
+                <span className="flex items-center gap-2"><i className="w-4 h-4 rounded-sm bg-emerald-500/45" /> Accessible</span>
                 <span className="flex items-center gap-2"><i className="w-4 h-4 rounded-sm bg-green-500" /> Selected</span>
                 <span className="flex items-center gap-2"><i className="w-4 h-4 rounded-sm bg-red-900/60" /> Unavailable</span>
             </div>
