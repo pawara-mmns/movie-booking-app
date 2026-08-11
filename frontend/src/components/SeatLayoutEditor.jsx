@@ -27,7 +27,7 @@ const SEAT_TYPES = {
     },
     couple: {
         label: 'Couple',
-        description: 'Double seating',
+        description: 'Always adds 2 joined seats',
         color: 'bg-pink-500',
         softColor: 'bg-pink-500/15 text-pink-300 border-pink-500/30',
     },
@@ -47,6 +47,53 @@ const SEAT_TYPES = {
 
 const clamp = (number, minimum, maximum) => Math.min(maximum, Math.max(minimum, number));
 const seatKey = (row, col) => `${row}-${col}`;
+const couplePairForRow = (row, col) => {
+    if (row[col] !== 'couple') return null;
+    let runStart = col;
+    while (runStart > 0 && row[runStart - 1] === 'couple') runStart -= 1;
+    const pairStart = runStart + Math.floor((col - runStart) / 2) * 2;
+    return row[pairStart + 1] === 'couple' ? [pairStart, pairStart + 1] : null;
+};
+
+const ensureCouplePairs = layout => layout.map(row => row.map((seat, col) => {
+    if (seat !== 'couple') return seat;
+    return couplePairForRow(row, col) ? seat : 'standard';
+}));
+
+const expandWithCouplePartners = (layout, seatKeys) => {
+    const expanded = new Set(seatKeys);
+    seatKeys.forEach(key => {
+        const [row, col] = key.split('-').map(Number);
+        const pair = couplePairForRow(layout[row] || [], col);
+        pair?.forEach(pairCol => expanded.add(seatKey(row, pairCol)));
+    });
+    return [...expanded];
+};
+
+const expandAsNewCouples = (layout, seatKeys) => {
+    const expanded = new Set();
+    const seatsByRow = new Map();
+    seatKeys.forEach(key => {
+        const [row, col] = key.split('-').map(Number);
+        seatsByRow.set(row, [...(seatsByRow.get(row) || []), col]);
+    });
+    seatsByRow.forEach((columns, row) => {
+        const sorted = [...new Set(columns)].sort((first, second) => first - second);
+        for (let index = 0; index < sorted.length; index += 1) {
+            const col = sorted[index];
+            if (sorted[index + 1] === col + 1) {
+                expanded.add(seatKey(row, col));
+                expanded.add(seatKey(row, col + 1));
+                index += 1;
+            } else {
+                const partner = col < layout[row].length - 1 ? col + 1 : col - 1;
+                expanded.add(seatKey(row, col));
+                if (partner >= 0) expanded.add(seatKey(row, partner));
+            }
+        }
+    });
+    return [...expanded];
+};
 const rowLabel = index => {
     let label = '';
     let value = index + 1;
@@ -65,7 +112,7 @@ const normalizeLayout = layout => {
         return Array.from({ length: 8 }, () => Array(12).fill('standard'));
     }
     const columnCount = Math.max(1, ...layout.map(row => Array.isArray(row) ? row.length : 0));
-    return layout.map(row => Array.from({ length: columnCount }, (_, col) => normalizeSeat(row?.[col])));
+    return ensureCouplePairs(layout.map(row => Array.from({ length: columnCount }, (_, col) => normalizeSeat(row?.[col]))));
 };
 
 const layoutsMatch = (first, second) => JSON.stringify(first) === JSON.stringify(second);
@@ -116,7 +163,7 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
             }
             if (!typing && (event.key === 'Delete' || event.key === 'Backspace') && selectedSeats.length) {
                 event.preventDefault();
-                const selected = new Set(selectedSeats);
+                const selected = new Set(expandWithCouplePartners(layout, selectedSeats));
                 commitLayout(layout.map((row, rowIndex) => row.map((seat, colIndex) => selected.has(seatKey(rowIndex, colIndex)) ? 'gap' : seat)));
             }
         };
@@ -127,8 +174,8 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
     const resizeGrid = (nextRows, nextCols) => {
         const safeRows = clamp(Number(nextRows) || 1, 1, 30);
         const safeCols = clamp(Number(nextCols) || 1, 1, 40);
-        const next = Array.from({ length: safeRows }, (_, row) =>
-            Array.from({ length: safeCols }, (_, col) => layout[row]?.[col] || 'standard'));
+        const next = ensureCouplePairs(Array.from({ length: safeRows }, (_, row) =>
+            Array.from({ length: safeCols }, (_, col) => layout[row]?.[col] || 'standard')));
         commitLayout(next);
         setSelectedSeats(current => current.filter(key => {
             const [row, col] = key.split('-').map(Number);
@@ -139,24 +186,43 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
     const applyType = useCallback(type => {
         setSelectedType(type);
         if (!selectedSeats.length) return;
-        const selected = new Set(selectedSeats);
-        commitLayout(layout.map((row, rowIndex) => row.map((seat, colIndex) =>
-            selected.has(seatKey(rowIndex, colIndex)) ? type : seat)));
+        const expanded = type === 'couple'
+            ? expandAsNewCouples(layout, selectedSeats)
+            : expandWithCouplePartners(layout, selectedSeats);
+        const selected = new Set(expanded);
+        commitLayout(ensureCouplePairs(layout.map((row, rowIndex) => row.map((seat, colIndex) =>
+            selected.has(seatKey(rowIndex, colIndex)) ? type : seat))));
+        setSelectedSeats(expanded);
     }, [commitLayout, layout, selectedSeats]);
 
     const deleteSelected = useCallback(() => {
         if (!selectedSeats.length) return;
-        const selected = new Set(selectedSeats);
+        const expanded = expandWithCouplePartners(layout, selectedSeats);
+        const selected = new Set(expanded);
         commitLayout(layout.map((row, rowIndex) => row.map((seat, colIndex) =>
             selected.has(seatKey(rowIndex, colIndex)) ? 'gap' : seat)));
+        setSelectedSeats(expanded);
     }, [commitLayout, layout, selectedSeats]);
 
     const handleSeatClick = (row, col, event) => {
         const key = seatKey(row, col);
         if (tool === 'paint') {
+            const currentPair = couplePairForRow(layout[row], col);
+            const paintColumns = selectedType === 'couple'
+                ? [col, col < cols - 1 ? col + 1 : col - 1]
+                : currentPair || [col];
             const next = layout.map((items, rowIndex) => items.map((seat, colIndex) =>
-                rowIndex === row && colIndex === col ? selectedType : seat));
-            commitLayout(next);
+                rowIndex === row && paintColumns.includes(colIndex) ? selectedType : seat));
+            commitLayout(ensureCouplePairs(next));
+            return;
+        }
+
+        const currentPair = couplePairForRow(layout[row], col);
+        if (currentPair) {
+            const pairKeys = currentPair.map(pairCol => seatKey(row, pairCol));
+            const pairSelected = pairKeys.every(pairKey => selectedSet.has(pairKey));
+            setSelectedSeats(current => pairSelected ? current.filter(item => !pairKeys.includes(item)) : [...new Set([...current, ...pairKeys])]);
+            setLastSelected(key);
             return;
         }
 
@@ -286,7 +352,10 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
                                         <span className="w-6 shrink-0 text-center text-xs font-bold text-slate-500">{rowLabel(rowIndex)}</span>
                                         {row.map((seat, colIndex) => {
                                             const key = seatKey(rowIndex, colIndex);
-                                            const selected = selectedSet.has(key);
+                                            const couplePair = couplePairForRow(row, colIndex);
+                                            if (couplePair && colIndex === couplePair[1]) return null;
+                                            const pairKeys = couplePair?.map(pairCol => seatKey(rowIndex, pairCol)) || [key];
+                                            const selected = pairKeys.some(pairKey => selectedSet.has(pairKey));
                                             const isGap = seat === 'gap';
                                             const type = SEAT_TYPES[seat] || SEAT_TYPES.standard;
                                             return (
@@ -295,14 +364,15 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
                                                     key={key}
                                                     onClick={event => handleSeatClick(rowIndex, colIndex, event)}
                                                     className={clsx(
-                                                        'group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-t-[9px] border text-[9px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300',
-                                                        isGap ? 'border-dashed border-slate-700 bg-transparent text-slate-700 hover:border-slate-500 hover:text-slate-500' : `${type.color} border-white/10 text-slate-950 shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)] hover:-translate-y-0.5`,
+                                                        'group relative flex h-8 shrink-0 items-center justify-center border text-[9px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300',
+                                                        couplePair ? 'w-[72px] rounded-t-xl bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500' : 'w-8 rounded-t-[9px]',
+                                                        isGap ? 'border-dashed border-slate-700 bg-transparent text-slate-700 hover:border-slate-500 hover:text-slate-500' : couplePair ? 'border-pink-300/25 text-slate-950 shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)] hover:-translate-y-0.5' : `${type.color} border-white/10 text-slate-950 shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)] hover:-translate-y-0.5`,
                                                         selected && 'z-10 scale-110 ring-2 ring-white ring-offset-2 ring-offset-[#090e16]',
                                                     )}
-                                                    aria-label={`${rowLabel(rowIndex)}${colIndex + 1}, ${isGap ? 'empty position' : type.label}`}
-                                                    title={`${rowLabel(rowIndex)}${colIndex + 1} · ${isGap ? 'Empty position' : type.label}`}
+                                                    aria-label={couplePair ? `${rowLabel(rowIndex)}${couplePair[0] + 1} and ${rowLabel(rowIndex)}${couplePair[1] + 1}, Couple seat` : `${rowLabel(rowIndex)}${colIndex + 1}, ${isGap ? 'empty position' : type.label}`}
+                                                    title={couplePair ? `${rowLabel(rowIndex)}${couplePair[0] + 1} + ${rowLabel(rowIndex)}${couplePair[1] + 1} · Couple seat` : `${rowLabel(rowIndex)}${colIndex + 1} · ${isGap ? 'Empty position' : type.label}`}
                                                 >
-                                                    {isGap ? <span className="opacity-0 transition-opacity group-hover:opacity-100">+</span> : colIndex + 1}
+                                                    {isGap ? <span className="opacity-0 transition-opacity group-hover:opacity-100">+</span> : couplePair ? `${couplePair[0] + 1} + ${couplePair[1] + 1}` : colIndex + 1}
                                                 </button>
                                             );
                                         })}
