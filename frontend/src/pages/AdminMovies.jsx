@@ -22,6 +22,7 @@ const AdminMovies = () => {
     const [posterPreview, setPosterPreview] = useState('');
     const [message, setMessage] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [durationInputs, setDurationInputs] = useState({ hours: '2', minutes: '0' });
 
     const fetchMovies = useCallback(async () => {
         setLoading(true);
@@ -47,6 +48,7 @@ const AdminMovies = () => {
     const openNew = () => {
         setEditingId(null);
         setFormData(emptyMovie);
+        setDurationInputs({ hours: '2', minutes: '0' });
         resetPosterUpload();
         setShowForm(true);
         setMessage(null);
@@ -56,6 +58,7 @@ const AdminMovies = () => {
     const openEdit = movie => {
         setEditingId(movie.id);
         setFormData({ title: movie.title, description: movie.description || '', duration_mins: movie.duration_mins, poster_url: movie.poster_url || '', genre: movie.genre, rating: movie.rating });
+        setDurationInputs({ hours: String(Math.floor(movie.duration_mins / 60)), minutes: String(movie.duration_mins % 60) });
         setPosterFile(null);
         setPosterPreview(movie.poster_url || '');
         setShowForm(true);
@@ -78,6 +81,7 @@ const AdminMovies = () => {
             setShowForm(false);
             setEditingId(null);
             setFormData(emptyMovie);
+            setDurationInputs({ hours: '2', minutes: '0' });
             resetPosterUpload();
             await fetchMovies();
         } catch (error) {
@@ -99,11 +103,18 @@ const AdminMovies = () => {
     };
 
     const updateDuration = (part, value) => {
-        const currentHours = Math.floor(formData.duration_mins / 60);
-        const currentMinutes = formData.duration_mins % 60;
-        const hours = part === 'hours' ? Math.max(0, Number(value) || 0) : currentHours;
-        const minutes = part === 'minutes' ? Math.min(59, Math.max(0, Number(value) || 0)) : currentMinutes;
+        if (value !== '' && !/^\d+$/.test(value)) return;
+        const nextInputs = { ...durationInputs, [part]: value };
+        setDurationInputs(nextInputs);
+        const hours = Math.max(0, Number(nextInputs.hours) || 0);
+        const minutes = Math.min(59, Math.max(0, Number(nextInputs.minutes) || 0));
         setFormData({ ...formData, duration_mins: Math.min(600, (hours * 60) + minutes) });
+    };
+
+    const normalizeDuration = part => {
+        const maximum = part === 'hours' ? 10 : 59;
+        const normalized = String(Math.min(maximum, Math.max(0, Number(durationInputs[part]) || 0)));
+        updateDuration(part, normalized);
     };
 
     const deleteMovie = async movie => {
@@ -150,7 +161,7 @@ const AdminMovies = () => {
 
                                     <section className="rounded-2xl border border-white/[0.07] bg-[#0c121b] p-4 sm:p-5">
                                         <div className="mb-4 flex items-center justify-between gap-4"><div><h3 className="flex items-center gap-2 font-bold"><Clock3 size={17} className="text-amber-400" /> Runtime</h3><p className="mt-1 text-xs text-slate-500">Enter hours and remaining minutes.</p></div><span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-300">{formatDuration(formData.duration_mins)}</span></div>
-                                        <fieldset className="grid grid-cols-2 gap-3"><legend className="sr-only">Movie duration</legend><label><span className="mb-1.5 block text-xs font-semibold text-slate-400">Hours</span><div className="relative"><input type="number" min="0" max="10" className="input-field pr-12" value={Math.floor(formData.duration_mins / 60)} onChange={event => updateDuration('hours', event.target.value)} aria-label="Duration hours" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">hrs</span></div></label><label><span className="mb-1.5 block text-xs font-semibold text-slate-400">Minutes</span><div className="relative"><input type="number" min="0" max="59" className="input-field pr-12" value={formData.duration_mins % 60} onChange={event => updateDuration('minutes', event.target.value)} aria-label="Duration minutes" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">min</span></div></label></fieldset>
+                                        <fieldset className="grid grid-cols-2 gap-3"><legend className="sr-only">Movie duration</legend><label><span className="mb-1.5 block text-xs font-semibold text-slate-400">Hours</span><div className="relative"><input type="number" inputMode="numeric" min="0" max="10" className="input-field input-suffix" value={durationInputs.hours} onChange={event => updateDuration('hours', event.target.value)} onBlur={() => normalizeDuration('hours')} aria-label="Duration hours" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">hrs</span></div></label><label><span className="mb-1.5 block text-xs font-semibold text-slate-400">Minutes</span><div className="relative"><input type="number" inputMode="numeric" min="0" max="59" className="input-field input-suffix" value={durationInputs.minutes} onChange={event => updateDuration('minutes', event.target.value)} onBlur={() => normalizeDuration('minutes')} aria-label="Duration minutes" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">min</span></div></label></fieldset>
                                     </section>
 
                                     <label className="block"><FieldLabel optional>Description</FieldLabel><textarea rows="5" className="input-field resize-y" value={formData.description} onChange={event => setFormData({ ...formData, description: event.target.value })} placeholder="Write a short synopsis customers can scan quickly…" /></label>
@@ -164,7 +175,7 @@ const AdminMovies = () => {
                                     <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-amber-300"><Upload size={17} /> {posterFile ? 'Change image' : 'Upload image'}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={selectPoster} className="sr-only" /></label>
                                     {posterFile && <div className="mt-3 flex items-center justify-between gap-2 text-xs"><span className="truncate text-emerald-300">{posterFile.name}</span><button type="button" onClick={clearPosterSelection} className="shrink-0 text-red-300 hover:text-red-200">Remove</button></div>}
                                     <div className="my-4 flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600"><span className="h-px flex-1 bg-white/[0.07]" />or use URL<span className="h-px flex-1 bg-white/[0.07]" /></div>
-                                    <label><FieldLabel optional>Poster URL</FieldLabel><span className="relative block"><Link2 size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" /><input type="url" className="input-field pl-9 text-sm" value={formData.poster_url} onChange={event => { setFormData({ ...formData, poster_url: event.target.value }); if (!posterFile) setPosterPreview(event.target.value); }} placeholder="https://…" /></span></label>
+                                    <label><FieldLabel optional>Poster URL</FieldLabel><span className="relative block"><Link2 size={16} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-600" /><input type="url" className="input-field input-icon-prefix text-sm" value={formData.poster_url} onChange={event => { setFormData({ ...formData, poster_url: event.target.value }); if (!posterFile) setPosterPreview(event.target.value); }} placeholder="https://…" /></span></label>
                                     <p className="mt-3 text-xs leading-5 text-slate-600">JPG, PNG, WebP or AVIF. Maximum 5 MB.</p>
                                 </aside>
                             </div>
