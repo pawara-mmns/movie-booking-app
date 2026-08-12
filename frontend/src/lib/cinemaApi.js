@@ -8,6 +8,23 @@ const failOnError = ({ error, data }) => {
 const seatCount = layout => (layout || []).flat().filter(seat => !['gap', 'blocked', 0].includes(seat)).length;
 const POSTER_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 const MAX_POSTER_SIZE = 5 * 1024 * 1024;
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+const paymentRequest = async (path, options = {}) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Sign in before continuing to payment.');
+    const response = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+            ...options.headers,
+        },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || 'Payment service is unavailable.');
+    return payload;
+};
 
 export const cinemaApi = {
     async listAdminMovies() {
@@ -208,14 +225,15 @@ export const cinemaApi = {
         }));
     },
 
-    async createBooking(showtimeId, seats) {
-        return failOnError(await supabase.rpc('create_booking', {
-            p_showtime_id: Number(showtimeId),
-            p_seats: seats.map(seat => {
-                const [row, col] = seat.split('-').map(Number);
-                return { row, col };
-            }),
-        }));
+    async initiatePayHerePayment(payment) {
+        return paymentRequest('/api/payments/payhere/initiate', {
+            method: 'POST',
+            body: JSON.stringify(payment),
+        });
+    },
+
+    async getPaymentStatus(orderId) {
+        return paymentRequest(`/api/payments/payhere/status/${encodeURIComponent(orderId)}`);
     },
 
     async getDashboard() {
