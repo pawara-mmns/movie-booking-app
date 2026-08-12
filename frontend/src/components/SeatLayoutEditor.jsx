@@ -11,6 +11,7 @@ import {
     X,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { notify } from '../lib/notifications';
 
 const SEAT_TYPES = {
     standard: {
@@ -272,11 +273,11 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
 
     const submit = () => {
         if (!name.trim()) {
-            window.alert('Enter a cinema or screen name.');
+            notify.warning('Enter a cinema or screen name.');
             return;
         }
         if (!sellableCount) {
-            window.alert('Add at least one sellable seat before saving.');
+            notify.warning('Add at least one sellable seat before saving.');
             return;
         }
         onSave(name.trim(), layout);

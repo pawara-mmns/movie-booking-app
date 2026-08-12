@@ -3,19 +3,19 @@ import { Armchair, Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import SeatLayoutEditor from '../components/SeatLayoutEditor';
 import { cinemaApi } from '../lib/cinemaApi';
+import { notify } from '../lib/notifications';
 
 const AdminScreens = () => {
     const [screens, setScreens] = useState([]);
     const [selected, setSelected] = useState(null);
     const [editorVersion, setEditorVersion] = useState(0);
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState(null);
 
     const loadScreens = useCallback(async () => {
         try {
             setScreens(await cinemaApi.listScreens());
         } catch (error) {
-            setMessage({ type: 'error', text: error.message });
+            notify.error(error, 'Could not load cinema screens.');
         }
     }, []);
 
@@ -24,27 +24,24 @@ const AdminScreens = () => {
     const newScreen = () => {
         setSelected(null);
         setEditorVersion(value => value + 1);
-        setMessage(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const editScreen = screen => {
         setSelected(screen);
         setEditorVersion(value => value + 1);
-        setMessage(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const saveScreen = async (name, seatConfiguration) => {
         setSaving(true);
-        setMessage(null);
         try {
             const data = await cinemaApi.saveScreen({ name, seat_configuration: seatConfiguration }, selected?.id);
-            setMessage({ type: 'success', text: selected ? 'Screen updated successfully.' : 'Screen created successfully.' });
+            notify.success(selected ? 'Screen updated successfully.' : 'Screen created successfully.');
             setSelected(data);
             await loadScreens();
         } catch (error) {
-            setMessage({ type: 'error', text: error.message });
+            notify.error(error, 'Could not save the cinema screen.');
         } finally {
             setSaving(false);
         }
@@ -55,11 +52,11 @@ const AdminScreens = () => {
         try {
             await cinemaApi.deleteScreen(screen.id);
         } catch (error) {
-            setMessage({ type: 'error', text: error.message || 'Could not delete screen' });
+            notify.error(error, 'Could not delete screen.');
             return;
         }
         if (selected?.id === screen.id) newScreen();
-        setMessage({ type: 'success', text: 'Screen deleted.' });
+        notify.success('Screen deleted.');
         loadScreens();
     };
 
@@ -75,8 +72,6 @@ const AdminScreens = () => {
                     </div>
                     <button onClick={newScreen} className="btn-primary flex items-center gap-2"><Plus size={19} /> New screen</button>
                 </header>
-
-                {message && <div className={`mb-6 rounded-xl border p-4 ${message.type === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'}`}>{message.text}</div>}
 
                 <SeatLayoutEditor key={`${selected?.id || 'new'}-${editorVersion}`} initialName={selected?.name || ''} initialLayout={selected?.seat_configuration || []} onSave={saveScreen} saving={saving} />
 

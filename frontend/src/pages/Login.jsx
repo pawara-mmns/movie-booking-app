@@ -3,11 +3,11 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 import { useAuth } from '../context/AuthContext';
+import { notify } from '../lib/notifications';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -17,13 +17,13 @@ const Login = () => {
 
     const handleSubmit = async event => {
         event.preventDefault();
-        setError('');
         setLoading(true);
         try {
             await login(email, password);
+            notify.success('Welcome back! You are now signed in.');
             navigate(destination, { replace: true });
         } catch (requestError) {
-            setError(requestError.message || 'Failed to sign in');
+            notify.error(requestError, 'Failed to sign in. Please check your details.');
         } finally {
             setLoading(false);
         }
@@ -32,8 +32,6 @@ const Login = () => {
     return (
         <AuthLayout image="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=1800&auto=format&fit=crop" eyebrow="Welcome back" title="Your next great movie night starts here." description="Sign in to choose live seats, confirm bookings, and keep every cinema plan in one place.">
             <div className="mb-8"><p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">Member access</p><h2 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Sign in to CineSphere</h2><p className="mt-3 text-sm leading-6 text-slate-400">Enter the email and password connected to your account.</p></div>
-
-            {error && <div role="alert" className="mb-6 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-300">Email address</span><span className="relative block"><Mail size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="email" autoComplete="email" className="h-13 w-full rounded-xl border border-white/10 bg-[#0d131d] pl-11 pr-4 text-white outline-none transition-colors placeholder:text-slate-600 focus:border-amber-400/60" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} required /></span></label>

@@ -3,6 +3,7 @@ import { Clock3, Film, ImagePlus, Link2, Pencil, Plus, Save, Trash2, Upload, X }
 import AdminSidebar from '../components/AdminSidebar';
 import { cinemaApi } from '../lib/cinemaApi';
 import { formatDuration } from '../lib/formatters';
+import { notify } from '../lib/notifications';
 
 const emptyMovie = { title: '', description: '', duration_mins: 120, poster_url: '', genre: '', rating: 'PG-13' };
 
@@ -20,7 +21,6 @@ const AdminMovies = () => {
     const [formData, setFormData] = useState(emptyMovie);
     const [posterFile, setPosterFile] = useState(null);
     const [posterPreview, setPosterPreview] = useState('');
-    const [message, setMessage] = useState(null);
     const [saving, setSaving] = useState(false);
     const [durationInputs, setDurationInputs] = useState({ hours: '2', minutes: '0' });
 
@@ -29,7 +29,7 @@ const AdminMovies = () => {
         try {
             setMovies(await cinemaApi.listAdminMovies());
         } catch (error) {
-            setMessage({ type: 'error', text: error.message });
+            notify.error(error, 'Could not load movies.');
         } finally {
             setLoading(false);
         }
@@ -51,7 +51,6 @@ const AdminMovies = () => {
         setDurationInputs({ hours: '2', minutes: '0' });
         resetPosterUpload();
         setShowForm(true);
-        setMessage(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -62,22 +61,20 @@ const AdminMovies = () => {
         setPosterFile(null);
         setPosterPreview(movie.poster_url || '');
         setShowForm(true);
-        setMessage(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleSubmit = async event => {
         event.preventDefault();
         if (formData.duration_mins < 1) {
-            setMessage({ type: 'error', text: 'Movie duration must be at least 1 minute.' });
+            notify.warning('Movie duration must be at least 1 minute.');
             return;
         }
         setSaving(true);
-        setMessage(null);
         try {
             const posterUrl = posterFile ? await cinemaApi.uploadMoviePoster(posterFile) : formData.poster_url;
             await cinemaApi.saveMovie({ ...formData, poster_url: posterUrl }, editingId);
-            setMessage({ type: 'success', text: editingId ? 'Movie updated successfully.' : 'Movie published successfully.' });
+            notify.success(editingId ? 'Movie updated successfully.' : 'Movie published successfully.');
             setShowForm(false);
             setEditingId(null);
             setFormData(emptyMovie);
@@ -85,7 +82,7 @@ const AdminMovies = () => {
             resetPosterUpload();
             await fetchMovies();
         } catch (error) {
-            setMessage({ type: 'error', text: error.message });
+            notify.error(error, 'Could not save the movie.');
         } finally {
             setSaving(false);
         }
@@ -119,13 +116,12 @@ const AdminMovies = () => {
 
     const deleteMovie = async movie => {
         if (!window.confirm(`Delete “${movie.title}”?`)) return;
-        setMessage(null);
         try {
             await cinemaApi.deleteMovie(movie.id);
-            setMessage({ type: 'success', text: 'Movie deleted.' });
+            notify.success('Movie deleted.');
             await fetchMovies();
         } catch (error) {
-            setMessage({ type: 'error', text: error.message || 'Could not delete movie' });
+            notify.error(error, 'Could not delete movie.');
         }
     };
 
@@ -137,8 +133,6 @@ const AdminMovies = () => {
                     <div><p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-amber-400">Content library</p><h1 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">Movies</h1><p className="mt-2 text-sm text-slate-400">Add a movie once and use it across every cinema schedule.</p></div>
                     <button onClick={openNew} className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-amber-300"><Plus size={18} /> Add movie</button>
                 </header>
-
-                {message && <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${message.type === 'error' ? 'border-red-400/20 bg-red-400/10 text-red-200' : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'}`}>{message.text}</div>}
 
                 {showForm && (
                     <section className="mb-10 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#111722] shadow-[0_24px_70px_rgba(0,0,0,0.24)]">

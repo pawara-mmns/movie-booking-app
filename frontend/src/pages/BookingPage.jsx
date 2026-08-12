@@ -5,6 +5,7 @@ import CustomerHeader from '../components/CustomerHeader';
 import SeatSelection from '../components/SeatSelection';
 import { useAuth } from '../context/AuthContext';
 import { cinemaApi } from '../lib/cinemaApi';
+import { notify } from '../lib/notifications';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 
@@ -49,10 +50,10 @@ const BookingPage = () => {
         setProcessing(true);
         try {
             const data = await cinemaApi.createBooking(showtimeId, bookingData.seats);
-            window.alert(`Booking confirmed! Reference: ${data.reference}`);
+            notify.success(`Booking confirmed! Reference: ${data.reference}`, { autoClose: 6500 });
             navigate('/dashboard');
         } catch (requestError) {
-            window.alert(requestError.message);
+            notify.error(requestError, 'Could not complete your booking.');
             await loadShowtime();
             setBookingData({ seats: [], total: 0 });
         } finally {

@@ -2,6 +2,7 @@ import { LogIn, LogOut, Menu, Search, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { notify } from '../lib/notifications';
 
 const CustomerHeader = () => {
     const { user, logout } = useAuth();
@@ -9,9 +10,14 @@ const CustomerHeader = () => {
     const [menuOpen, setMenuOpen] = useState(false);
 
     const handleLogout = async () => {
-        await logout();
-        setMenuOpen(false);
-        navigate('/', { replace: true });
+        try {
+            await logout();
+            setMenuOpen(false);
+            notify.success('You have been signed out.');
+            navigate('/', { replace: true });
+        } catch (error) {
+            notify.error(error, 'Could not sign out.');
+        }
     };
 
     const homePath = user ? '/dashboard' : '/';

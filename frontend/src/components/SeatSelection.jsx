@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckCircle, LoaderCircle } from 'lucide-react';
 import clsx from 'clsx';
+import { notify } from '../lib/notifications';
 
 const SEAT_COLORS = {
     standard: 'bg-sky-500/35 hover:bg-sky-500/80',
@@ -66,7 +67,7 @@ const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, seatPrices = 
                 if (onReleaseSeat) await Promise.all(columns.map(column => onReleaseSeat(row, column)));
                 changeSelection(selectedSeats.filter(id => !seatIds.includes(id)));
             } catch (error) {
-                window.alert(error.message || 'Could not release this seat');
+                notify.error(error, 'Could not release this seat.');
             } finally {
                 setPendingSeat('');
             }
@@ -76,7 +77,7 @@ const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, seatPrices = 
         const newSeatIds = seatIds.filter(id => !selectedSeats.includes(id));
         if (selectedSeats.length + newSeatIds.length > 6) {
             setPendingSeat('');
-            window.alert('You can select up to 6 seats. A couple seat counts as 2 seats.');
+            notify.warning('You can select up to 6 seats. A couple seat counts as 2 seats.');
             return;
         }
 
@@ -93,7 +94,7 @@ const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, seatPrices = 
             if (onReleaseSeat && heldColumns.length) {
                 await Promise.allSettled(heldColumns.map(column => onReleaseSeat(row, column)));
             }
-            window.alert(error.message || 'This couple seat is no longer available');
+            notify.error(error, 'This couple seat is no longer available.');
         } finally {
             setPendingSeat('');
         }

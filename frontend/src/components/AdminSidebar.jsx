@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Film, Monitor, LogOut, CalendarClock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { notify } from '../lib/notifications';
 import clsx from 'clsx';
 
 const SidebarItem = ({ to, icon, label }) => {
@@ -25,8 +26,13 @@ const AdminSidebar = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
     const handleLogout = async () => {
-        await logout();
-        navigate('/', { replace: true });
+        try {
+            await logout();
+            notify.success('You have been signed out.');
+            navigate('/', { replace: true });
+        } catch (error) {
+            notify.error(error, 'Could not sign out.');
+        }
     };
 
     return (

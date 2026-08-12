@@ -5,6 +5,7 @@ import AdminSeatOccupancy from '../components/AdminSeatOccupancy';
 import PublishedScheduleExplorer from '../components/PublishedScheduleExplorer';
 import { cinemaApi } from '../lib/cinemaApi';
 import { formatDuration } from '../lib/formatters';
+import { notify } from '../lib/notifications';
 
 const emptyDay = () => ({ date: '', times: [''], syncWithFirst: false, excludedTemplateTimes: [] });
 const PRICE_TYPES = [
@@ -34,7 +35,6 @@ const AdminShowtimes = () => {
     const [seatPrices, setSeatPrices] = useState(DEFAULT_PRICES);
     const [scheduleDays, setScheduleDays] = useState([emptyDay()]);
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState(null);
     const [occupancyShowtimeId, setOccupancyShowtimeId] = useState(null);
     const [occupancyData, setOccupancyData] = useState(null);
     const [occupancyLoading, setOccupancyLoading] = useState(false);
@@ -52,7 +52,7 @@ const AdminShowtimes = () => {
             setScreens(screenData);
             setShowtimes(showtimeData);
         } catch (error) {
-            setMessage({ type: 'error', text: error.message });
+            notify.error(error, 'Could not load showtime data.');
         }
     }, []);
 
@@ -145,18 +145,18 @@ const AdminShowtimes = () => {
         const movie = selectedMovie;
         if (!movie) return;
         if (scheduleConflicts.size) {
-            setMessage({ type: 'error', text: 'Some showtimes overlap. Change or remove the highlighted times before publishing.' });
+            notify.warning('Some showtimes overlap. Change or remove the highlighted times before publishing.');
             return;
         }
         const invalidPrice = PRICE_TYPES.some(type => !Number.isFinite(Number(seatPrices[type.id])) || Number(seatPrices[type.id]) <= 0);
         if (invalidPrice) {
-            setMessage({ type: 'error', text: 'Enter a valid price greater than zero for every seat type.' });
+            notify.warning('Enter a valid price greater than zero for every seat type.');
             return;
         }
 
         const rawSlots = scheduleDays.flatMap(day => day.times.map(time => `${day.date}T${time}`));
         if (new Set(rawSlots).size !== rawSlots.length) {
-            setMessage({ type: 'error', text: 'The same date and time was added more than once.' });
+            notify.warning('The same date and time was added more than once.');
             return;
         }
 
@@ -167,7 +167,6 @@ const AdminShowtimes = () => {
         });
 
         setSaving(true);
-        setMessage(null);
         try {
             const createdCount = await cinemaApi.createShowtimes({
                 movieId: Number(movieId),
@@ -176,11 +175,11 @@ const AdminShowtimes = () => {
                 seatPrices: Object.fromEntries(PRICE_TYPES.map(type => [type.id, Math.round(Number(seatPrices[type.id]) * 100)])),
                 slots,
             });
-            setMessage({ type: 'success', text: `${createdCount} showtime${createdCount === 1 ? '' : 's'} published successfully. Customers can now see them.` });
+            notify.success(`${createdCount} showtime${createdCount === 1 ? '' : 's'} published successfully. Customers can now see them.`, { autoClose: 5500 });
             setScheduleDays([emptyDay()]);
             await loadData();
         } catch (error) {
-            setMessage({ type: 'error', text: error.message });
+            notify.error(error, 'Could not publish the showtimes.');
         } finally {
             setSaving(false);
         }
@@ -191,10 +190,10 @@ const AdminShowtimes = () => {
         try {
             await cinemaApi.deleteShowtime(showtime.id);
         } catch (error) {
-            setMessage({ type: 'error', text: error.message || 'Could not delete showtime' });
+            notify.error(error, 'Could not delete showtime.');
             return;
         }
-        setMessage({ type: 'success', text: 'Showtime deleted.' });
+        notify.success('Showtime deleted.');
         loadData();
     };
 
@@ -227,8 +226,6 @@ const AdminShowtimes = () => {
             <AdminSidebar />
             <main className="flex-1 p-8 min-w-0">
                 <header className="mb-7"><h1 className="text-3xl font-bold">Showtime Management</h1><p className="text-gray-400 mt-1">Schedule different times across multiple dates in one step.</p></header>
-                {message && <div className={`p-4 rounded-xl border mb-6 ${message.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-200' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'}`}>{message.text}</div>}
-
                 <section className="glass-panel p-6 mb-8">
                     <div className="flex flex-wrap items-start justify-between gap-4 mb-6"><div><h2 className="text-xl font-bold flex items-center gap-2"><CalendarClock className="text-primary" size={21} /> Build a movie schedule</h2><p className="text-sm text-gray-400 mt-1">Choose the movie and screen once, then add every date and time below.</p></div><span className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold">{slotCount} time slot{slotCount === 1 ? '' : 's'}</span></div>
                     {(movies.length === 0 || screens.length === 0) && <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-200 rounded-lg mb-5">Add at least one movie and one cinema screen before scheduling showtimes.</div>}
