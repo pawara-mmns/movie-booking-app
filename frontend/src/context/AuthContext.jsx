@@ -2,6 +2,13 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
+const OAUTH_RETURN_TO_KEY = 'cinesphere_oauth_return_to';
+
+const safeReturnTo = value => (
+    typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
+        ? value
+        : '/dashboard'
+);
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
@@ -67,6 +74,20 @@ export const AuthProvider = ({ children }) => {
         setUser(await profileForSession(data.session));
     };
 
+    const loginWithGoogle = async (returnTo = '/dashboard') => {
+        sessionStorage.setItem(OAUTH_RETURN_TO_KEY, safeReturnTo(returnTo));
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback`,
+            },
+        });
+        if (error) {
+            sessionStorage.removeItem(OAUTH_RETURN_TO_KEY);
+            throw new Error(error.message);
+        }
+    };
+
     const logout = async () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw new Error(error.message);
@@ -74,7 +95,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, register, loginWithGoogle, logout, loading, oauthReturnToKey: OAUTH_RETURN_TO_KEY }}>
             {children}
         </AuthContext.Provider>
     );
