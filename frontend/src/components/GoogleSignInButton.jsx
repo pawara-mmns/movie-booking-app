@@ -10,9 +10,12 @@ const GoogleSignInButton = ({ onClick, loading, label = 'Continue with Google' }
         {loading ? (
             <Loader size={19} className="animate-spin" />
         ) : (
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-white text-[17px] font-black leading-none shadow-sm" aria-hidden="true">
-                <span className="bg-gradient-to-br from-blue-500 via-red-500 to-amber-400 bg-clip-text text-transparent">G</span>
-            </span>
+            <img
+                src="/google-icon-logo-svgrepo-com.svg"
+                alt=""
+                className="h-5 w-5 shrink-0 object-contain"
+                aria-hidden="true"
+            />
         )}
         {loading ? 'Opening Google…' : label}
     </button>
