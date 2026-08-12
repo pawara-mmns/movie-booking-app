@@ -85,12 +85,38 @@ export const cinemaApi = {
             seat_prices: seatPrices,
             ...slot,
         }));
-        const data = failOnError(await supabase.from('showtimes').insert(rows).select('id'));
+        const result = await supabase.from('showtimes').insert(rows).select('id');
+        if (result.error?.code === '23P01' || result.error?.message?.includes('showtimes_no_screen_overlap')) {
+            throw new Error('One or more showtimes overlap another movie on this screen. Change the highlighted start times and try again.');
+        }
+        const data = failOnError(result);
         return data.length;
     },
 
     async deleteShowtime(id) {
         failOnError(await supabase.from('showtimes').delete().eq('id', id));
+    },
+
+    async getShowtimeOccupancy(showtimeId) {
+        const [showtimeResult, occupancyResult] = await Promise.all([
+            supabase
+                .from('showtimes')
+                .select('id,start_time,end_time,movies!inner(title),screens!inner(name,seat_configuration)')
+                .eq('id', showtimeId)
+                .single(),
+            supabase.rpc('get_admin_showtime_occupancy', { p_showtime_id: Number(showtimeId) }),
+        ]);
+        const showtime = failOnError(showtimeResult);
+        const occupancy = failOnError(occupancyResult);
+        return {
+            id: showtime.id,
+            movie_title: showtime.movies.title,
+            screen_name: showtime.screens.name,
+            start_time: showtime.start_time,
+            end_time: showtime.end_time,
+            seat_configuration: showtime.screens.seat_configuration || [],
+            occupancy,
+        };
     },
 
     async getCatalogFilters() {
