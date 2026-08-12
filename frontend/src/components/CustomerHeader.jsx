@@ -1,4 +1,4 @@
-import { Film, LogIn, LogOut, Menu, Search, UserPlus, X } from 'lucide-react';
+import { LogIn, LogOut, Menu, Search, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -19,11 +19,12 @@ const CustomerHeader = () => {
     return (
         <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#090d14]/85 backdrop-blur-2xl">
             <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
-                <Link to={homePath} className="group flex items-center gap-3 text-white" aria-label="CineSphere home">
-                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500 text-slate-950 shadow-[0_8px_30px_rgba(245,158,11,0.18)] transition-transform group-hover:-rotate-3">
-                        <Film size={21} strokeWidth={2.4} />
-                    </span>
-                    <span className="text-lg font-black tracking-[-0.03em]">Cine<span className="text-amber-400">Sphere</span></span>
+                <Link to={homePath} className="group relative h-12 w-[172px] shrink-0 overflow-hidden sm:w-[188px]" aria-label="CineSphere home">
+                    <img
+                        src="/Logo Seq - BackGround Remove.png"
+                        alt="CineSphere"
+                        className="pointer-events-none absolute left-1/2 top-1/2 w-[255px] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain transition-transform duration-300 group-hover:scale-[1.03] sm:w-[275px]"
+                    />
                 </Link>
 
                 <nav className="hidden items-center gap-2 md:flex" aria-label="Primary navigation">
