@@ -5,7 +5,7 @@ import { cinemaApi } from '../lib/cinemaApi';
 import { formatDuration } from '../lib/formatters';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
-const emptyDay = () => ({ date: '', times: [''], syncWithFirst: false });
+const emptyDay = () => ({ date: '', times: [''], syncWithFirst: false, excludedTemplateTimes: [] });
 const PRICE_TYPES = [
     { id: 'standard', label: 'Standard', color: 'bg-sky-500', hint: 'per seat' },
     { id: 'vip', label: 'VIP', color: 'bg-amber-400', hint: 'per seat' },
@@ -64,20 +64,41 @@ const AdminShowtimes = () => {
         if (dayIndex !== 0) return days.map((day, index) => index === dayIndex ? { ...day, times: nextTimes } : day);
         return days.map((day, index) => {
             if (index === 0) return { ...day, times: nextTimes };
-            return day.syncWithFirst ? { ...day, times: [...nextTimes] } : day;
+            if (!day.syncWithFirst) return day;
+            const exclusions = new Set(day.excludedTemplateTimes || []);
+            return { ...day, times: nextTimes.filter(time => !exclusions.has(time)) };
         });
     });
     const updateTime = (dayIndex, timeIndex, time) => updateDayTimes(dayIndex, times => times.map((value, slot) => slot === timeIndex ? time : value));
     const addTime = dayIndex => updateDayTimes(dayIndex, times => [...times, '']);
-    const removeTime = (dayIndex, timeIndex) => updateDayTimes(dayIndex, times => times.filter((_, slot) => slot !== timeIndex));
+    const removeTime = (dayIndex, timeIndex) => setScheduleDays(days => {
+        const targetDay = days[dayIndex];
+        if (dayIndex > 0 && targetDay.syncWithFirst) {
+            const removedTime = targetDay.times[timeIndex];
+            return days.map((day, index) => index === dayIndex ? {
+                ...day,
+                times: day.times.filter((_, slot) => slot !== timeIndex),
+                excludedTemplateTimes: [...new Set([...(day.excludedTemplateTimes || []), removedTime])],
+            } : day);
+        }
+
+        const nextTimes = targetDay.times.filter((_, slot) => slot !== timeIndex);
+        if (dayIndex !== 0) return days.map((day, index) => index === dayIndex ? { ...day, times: nextTimes } : day);
+        return days.map((day, index) => {
+            if (index === 0) return { ...day, times: nextTimes };
+            if (!day.syncWithFirst) return day;
+            const exclusions = new Set(day.excludedTemplateTimes || []);
+            return { ...day, times: nextTimes.filter(time => !exclusions.has(time)) };
+        });
+    });
     const addDate = () => setScheduleDays(days => [...days, emptyDay()]);
     const removeDate = dayIndex => setScheduleDays(days => days.filter((_, index) => index !== dayIndex));
     const toggleFirstDateSync = dayIndex => setScheduleDays(days => days.map((day, index) => {
         if (index !== dayIndex) return day;
         if (day.syncWithFirst) return { ...day, syncWithFirst: false };
-        return { ...day, times: [...days[0].times], syncWithFirst: true };
+        return { ...day, times: [...days[0].times], syncWithFirst: true, excludedTemplateTimes: [] };
     }));
-    const syncAllDates = () => setScheduleDays(days => days.map((day, index) => index === 0 ? day : { ...day, times: [...days[0].times], syncWithFirst: true }));
+    const syncAllDates = () => setScheduleDays(days => days.map((day, index) => index === 0 ? day : { ...day, times: [...days[0].times], syncWithFirst: true, excludedTemplateTimes: [] }));
     const updateSeatPrice = (type, value) => setSeatPrices(current => ({ ...current, [type]: value }));
 
     const slotCount = scheduleDays.reduce((total, day) => total + day.times.length, 0);
@@ -172,7 +193,7 @@ const AdminShowtimes = () => {
                                                 <button type="button" onClick={() => toggleFirstDateSync(dayIndex)} className={`flex h-12 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors ${day.syncWithFirst ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-white/10 text-slate-300 hover:border-primary/35 hover:bg-primary/10 hover:text-primary'}`}>{day.syncWithFirst ? <><Unlink2 size={16} /> Stop sync</> : <><Link2 size={16} /> Use date 1 times</>}</button>
                                             )}
                                         </div>
-                                        <div className="flex-1"><span className="mb-2 flex items-center gap-2 text-sm text-gray-300"><Clock3 size={16} className="text-primary" /> Times on this date {day.syncWithFirst && <small className="rounded-full bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-300">Live synced</small>}</span><div className="flex flex-wrap gap-2">{day.times.map((time, timeIndex) => <div key={timeIndex} className="flex items-center gap-1"><input type="time" className="input-field w-36" value={time} onChange={event => updateTime(dayIndex, timeIndex, event.target.value)} disabled={day.syncWithFirst} required />{day.times.length > 1 && !day.syncWithFirst && <button type="button" onClick={() => removeTime(dayIndex, timeIndex)} className="p-2 text-gray-500 hover:text-red-400" title="Remove time"><X size={17} /></button>}</div>)}{!day.syncWithFirst && <button type="button" onClick={() => addTime(dayIndex)} className="btn-secondary flex items-center gap-1 px-3"><Plus size={16} /> Add time</button>}</div></div>
+                                        <div className="flex-1"><span className="mb-2 flex items-center gap-2 text-sm text-gray-300"><Clock3 size={16} className="text-primary" /> Times on this date {day.syncWithFirst && <small className="rounded-full bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-300">Live synced{day.excludedTemplateTimes?.length ? ' · customized' : ''}</small>}</span><div className="flex flex-wrap gap-2">{day.times.map((time, timeIndex) => <div key={timeIndex} className="flex items-center gap-1"><input type="time" className="input-field w-36" value={time} onChange={event => updateTime(dayIndex, timeIndex, event.target.value)} disabled={day.syncWithFirst} required />{day.times.length > 1 && <button type="button" onClick={() => removeTime(dayIndex, timeIndex)} className="p-2 text-gray-500 hover:text-red-400" title={day.syncWithFirst ? 'Exclude this time from this date' : 'Remove time'}><X size={17} /></button>}</div>)}{!day.syncWithFirst && <button type="button" onClick={() => addTime(dayIndex)} className="btn-secondary flex items-center gap-1 px-3"><Plus size={16} /> Add time</button>}</div></div>
                                         {dayIndex > 0 && <button type="button" onClick={() => removeDate(dayIndex)} className="p-3 text-gray-500 hover:text-red-400" title="Remove date"><Trash2 size={18} /></button>}
                                     </div>
                                 </div>
