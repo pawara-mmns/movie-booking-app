@@ -196,3 +196,45 @@ select:disabled {
         animation: none;
     }
 }
+
+/* CineSphere notifications */
+.Toastify__toast-container {
+    width: min(390px, calc(100vw - 24px));
+    padding: 0;
+}
+
+.Toastify__toast {
+    min-height: 64px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 14px;
+    background: #111927;
+    color: #f8fafc;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.45;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+}
+
+.Toastify__toast--success { border-color: rgba(16, 185, 129, 0.38); }
+.Toastify__toast--error { border-color: rgba(248, 113, 113, 0.4); }
+.Toastify__toast--warning { border-color: rgba(251, 191, 36, 0.4); }
+.Toastify__toast--info { border-color: rgba(56, 189, 248, 0.38); }
+.Toastify__close-button { color: #cbd5e1; opacity: 0.75; }
+.Toastify__close-button:hover { opacity: 1; }
+.Toastify__progress-bar--success { background: #10b981; }
+.Toastify__progress-bar--error { background: #f87171; }
+.Toastify__progress-bar--warning { background: #fbbf24; }
+.Toastify__progress-bar--info { background: #38bdf8; }
+
+@media (max-width: 480px) {
+    .Toastify__toast-container--top-right {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+    }
+
+    .Toastify__toast {
+        margin-bottom: 10px;
+    }
+}
