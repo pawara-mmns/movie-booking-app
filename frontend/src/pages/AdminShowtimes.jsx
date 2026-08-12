@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, CalendarDays, Clock3, Plus, Tags, Trash2, X } from 'lucide-react';
+import { CalendarClock, CalendarDays, Clock3, Link2, Plus, Tags, Trash2, Unlink2, X } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import { cinemaApi } from '../lib/cinemaApi';
 import { formatDuration } from '../lib/formatters';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
-const emptyDay = () => ({ date: '', times: [''] });
+const emptyDay = () => ({ date: '', times: [''], syncWithFirst: false });
 const PRICE_TYPES = [
     { id: 'standard', label: 'Standard', color: 'bg-sky-500', hint: 'per seat' },
     { id: 'vip', label: 'VIP', color: 'bg-amber-400', hint: 'per seat' },
@@ -59,11 +59,25 @@ const AdminShowtimes = () => {
     useEffect(() => { loadData(); }, [loadData]);
 
     const updateDate = (dayIndex, date) => setScheduleDays(days => days.map((day, index) => index === dayIndex ? { ...day, date } : day));
-    const updateTime = (dayIndex, timeIndex, time) => setScheduleDays(days => days.map((day, index) => index === dayIndex ? { ...day, times: day.times.map((value, slot) => slot === timeIndex ? time : value) } : day));
-    const addTime = dayIndex => setScheduleDays(days => days.map((day, index) => index === dayIndex ? { ...day, times: [...day.times, ''] } : day));
-    const removeTime = (dayIndex, timeIndex) => setScheduleDays(days => days.map((day, index) => index === dayIndex ? { ...day, times: day.times.filter((_, slot) => slot !== timeIndex) } : day));
+    const updateDayTimes = (dayIndex, transform) => setScheduleDays(days => {
+        const nextTimes = transform(days[dayIndex].times);
+        if (dayIndex !== 0) return days.map((day, index) => index === dayIndex ? { ...day, times: nextTimes } : day);
+        return days.map((day, index) => {
+            if (index === 0) return { ...day, times: nextTimes };
+            return day.syncWithFirst ? { ...day, times: [...nextTimes] } : day;
+        });
+    });
+    const updateTime = (dayIndex, timeIndex, time) => updateDayTimes(dayIndex, times => times.map((value, slot) => slot === timeIndex ? time : value));
+    const addTime = dayIndex => updateDayTimes(dayIndex, times => [...times, '']);
+    const removeTime = (dayIndex, timeIndex) => updateDayTimes(dayIndex, times => times.filter((_, slot) => slot !== timeIndex));
     const addDate = () => setScheduleDays(days => [...days, emptyDay()]);
     const removeDate = dayIndex => setScheduleDays(days => days.filter((_, index) => index !== dayIndex));
+    const toggleFirstDateSync = dayIndex => setScheduleDays(days => days.map((day, index) => {
+        if (index !== dayIndex) return day;
+        if (day.syncWithFirst) return { ...day, syncWithFirst: false };
+        return { ...day, times: [...days[0].times], syncWithFirst: true };
+    }));
+    const syncAllDates = () => setScheduleDays(days => days.map((day, index) => index === 0 ? day : { ...day, times: [...days[0].times], syncWithFirst: true }));
     const updateSeatPrice = (type, value) => setSeatPrices(current => ({ ...current, [type]: value }));
 
     const slotCount = scheduleDays.reduce((total, day) => total + day.times.length, 0);
@@ -141,7 +155,7 @@ const AdminShowtimes = () => {
                         <div className="rounded-xl border border-white/10 bg-black/15 p-5">
                             <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h3 className="flex items-center gap-2 font-bold"><Tags size={18} className="text-primary" /> Seat-type prices</h3><p className="mt-1 text-xs text-slate-400">Set the LKR price for one person. A joined Couple seat automatically charges for two people.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Live booking prices</span></div>
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                {PRICE_TYPES.map(type => <label key={type.id} className="rounded-xl border border-white/[0.08] bg-[#0b1018] p-3 transition-colors focus-within:border-primary/40"><span className="mb-2 flex items-center gap-2"><i className={`h-4 w-4 rounded-t ${type.color}`} /><strong className="text-sm">{type.label}</strong></span><span className="relative block"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">LKR</span><input aria-label={`${type.label} seat price in LKR`} type="number" min="1" step="0.01" className="input-field pl-12" value={seatPrices[type.id]} onChange={event => updateSeatPrice(type.id, event.target.value)} required /></span><span className="mt-1.5 block text-[10px] uppercase tracking-wider text-slate-600">{type.hint}</span></label>)}
+                                {PRICE_TYPES.map(type => <label key={type.id} className="rounded-xl border border-white/[0.08] bg-[#0b1018] p-3 transition-colors focus-within:border-primary/40"><span className="mb-2 flex items-center gap-2"><i className={`h-4 w-4 rounded-t ${type.color}`} /><strong className="text-sm">{type.label}</strong></span><span className="relative block"><span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-xs font-bold text-slate-500">LKR</span><input aria-label={`${type.label} seat price in LKR`} type="number" inputMode="decimal" min="1" step="0.01" className="input-field input-prefix" value={seatPrices[type.id]} onChange={event => updateSeatPrice(type.id, event.target.value)} required /></span><span className="mt-1.5 block text-[10px] uppercase tracking-wider text-slate-600">{type.hint}</span></label>)}
                             </div>
                         </div>
 
@@ -150,8 +164,16 @@ const AdminShowtimes = () => {
                                 <div key={dayIndex} className="rounded-xl border border-white/10 bg-black/15 p-5">
                                     <div className="flex flex-wrap items-end gap-4">
                                         <label className="min-w-[220px]"><span className="flex items-center gap-2 text-sm text-gray-300 mb-2"><CalendarDays size={16} className="text-primary" /> Show date {dayIndex + 1}</span><input type="date" min={minimumDate} className="input-field" value={day.date} onChange={event => updateDate(dayIndex, event.target.value)} required /></label>
-                                        <div className="flex-1"><span className="flex items-center gap-2 text-sm text-gray-300 mb-2"><Clock3 size={16} className="text-primary" /> Times on this date</span><div className="flex flex-wrap gap-2">{day.times.map((time, timeIndex) => <div key={timeIndex} className="flex items-center gap-1"><input type="time" className="input-field w-36" value={time} onChange={event => updateTime(dayIndex, timeIndex, event.target.value)} required />{day.times.length > 1 && <button type="button" onClick={() => removeTime(dayIndex, timeIndex)} className="p-2 text-gray-500 hover:text-red-400" title="Remove time"><X size={17} /></button>}</div>)}<button type="button" onClick={() => addTime(dayIndex)} className="btn-secondary flex items-center gap-1 px-3"><Plus size={16} /> Add time</button></div></div>
-                                        {scheduleDays.length > 1 && <button type="button" onClick={() => removeDate(dayIndex)} className="p-3 text-gray-500 hover:text-red-400" title="Remove date"><Trash2 size={18} /></button>}
+                                        <div className="min-w-[180px]">
+                                            <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">Time template</span>
+                                            {dayIndex === 0 ? (
+                                                <button type="button" onClick={syncAllDates} disabled={scheduleDays.length === 1} className="flex h-12 items-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-semibold text-slate-300 transition-colors hover:border-primary/35 hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"><Link2 size={16} /> Sync all dates</button>
+                                            ) : (
+                                                <button type="button" onClick={() => toggleFirstDateSync(dayIndex)} className={`flex h-12 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors ${day.syncWithFirst ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-white/10 text-slate-300 hover:border-primary/35 hover:bg-primary/10 hover:text-primary'}`}>{day.syncWithFirst ? <><Unlink2 size={16} /> Stop sync</> : <><Link2 size={16} /> Use date 1 times</>}</button>
+                                            )}
+                                        </div>
+                                        <div className="flex-1"><span className="mb-2 flex items-center gap-2 text-sm text-gray-300"><Clock3 size={16} className="text-primary" /> Times on this date {day.syncWithFirst && <small className="rounded-full bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-300">Live synced</small>}</span><div className="flex flex-wrap gap-2">{day.times.map((time, timeIndex) => <div key={timeIndex} className="flex items-center gap-1"><input type="time" className="input-field w-36" value={time} onChange={event => updateTime(dayIndex, timeIndex, event.target.value)} disabled={day.syncWithFirst} required />{day.times.length > 1 && !day.syncWithFirst && <button type="button" onClick={() => removeTime(dayIndex, timeIndex)} className="p-2 text-gray-500 hover:text-red-400" title="Remove time"><X size={17} /></button>}</div>)}{!day.syncWithFirst && <button type="button" onClick={() => addTime(dayIndex)} className="btn-secondary flex items-center gap-1 px-3"><Plus size={16} /> Add time</button>}</div></div>
+                                        {dayIndex > 0 && <button type="button" onClick={() => removeDate(dayIndex)} className="p-3 text-gray-500 hover:text-red-400" title="Remove date"><Trash2 size={18} /></button>}
                                     </div>
                                 </div>
                             ))}
