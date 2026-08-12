@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, CalendarDays, Clock3, Link2, Plus, Tags, Trash2, Unlink2, X } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
+import AdminSeatOccupancy from '../components/AdminSeatOccupancy';
 import { cinemaApi } from '../lib/cinemaApi';
 import { formatDuration } from '../lib/formatters';
 
@@ -29,6 +30,9 @@ const localDateValue = date => {
     return `${year}-${month}-${day}`;
 };
 
+const rangesOverlap = (first, second) => first.start < second.end && second.start < first.end;
+const shortTime = value => new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
 const AdminShowtimes = () => {
     const [movies, setMovies] = useState([]);
     const [screens, setScreens] = useState([]);
@@ -39,6 +43,10 @@ const AdminShowtimes = () => {
     const [scheduleDays, setScheduleDays] = useState([emptyDay()]);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
+    const [occupancyShowtimeId, setOccupancyShowtimeId] = useState(null);
+    const [occupancyData, setOccupancyData] = useState(null);
+    const [occupancyLoading, setOccupancyLoading] = useState(false);
+    const [occupancyError, setOccupancyError] = useState('');
     const minimumDate = useMemo(() => localDateValue(new Date()), []);
 
     const loadData = useCallback(async () => {
@@ -102,11 +110,52 @@ const AdminShowtimes = () => {
     const updateSeatPrice = (type, value) => setSeatPrices(current => ({ ...current, [type]: value }));
 
     const slotCount = scheduleDays.reduce((total, day) => total + day.times.length, 0);
+    const selectedMovie = useMemo(() => movies.find(movie => movie.id === Number(movieId)), [movieId, movies]);
+    const draftSlots = useMemo(() => {
+        if (!selectedMovie) return [];
+        return scheduleDays.flatMap((day, dayIndex) => day.times.flatMap((time, timeIndex) => {
+            if (!day.date || !time) return [];
+            const start = new Date(`${day.date}T${time}`);
+            if (Number.isNaN(start.getTime())) return [];
+            return [{
+                key: `${dayIndex}-${timeIndex}`,
+                dayIndex,
+                start,
+                end: new Date(start.getTime() + selectedMovie.duration_mins * 60000),
+            }];
+        }));
+    }, [scheduleDays, selectedMovie]);
+
+    const scheduleConflicts = useMemo(() => {
+        const conflicts = new Map();
+        const addConflict = (key, text) => conflicts.set(key, [...(conflicts.get(key) || []), text]);
+
+        draftSlots.forEach((slot, index) => {
+            draftSlots.slice(index + 1).forEach(other => {
+                if (!rangesOverlap(slot, other)) return;
+                addConflict(slot.key, `Overlaps another draft show (${shortTime(other.start)}–${shortTime(other.end)}).`);
+                addConflict(other.key, `Overlaps another draft show (${shortTime(slot.start)}–${shortTime(slot.end)}).`);
+            });
+
+            showtimes.forEach(existing => {
+                if (String(existing.screen_id) !== String(screenId)) return;
+                const existingRange = { start: new Date(existing.start_time), end: new Date(existing.end_time) };
+                if (!rangesOverlap(slot, existingRange)) return;
+                addConflict(slot.key, `${existing.movie_title} already uses this screen from ${shortTime(existingRange.start)}–${shortTime(existingRange.end)}.`);
+            });
+        });
+
+        return conflicts;
+    }, [draftSlots, screenId, showtimes]);
 
     const handleSubmit = async event => {
         event.preventDefault();
-        const movie = movies.find(item => item.id === Number(movieId));
+        const movie = selectedMovie;
         if (!movie) return;
+        if (scheduleConflicts.size) {
+            setMessage({ type: 'error', text: 'Some showtimes overlap. Change or remove the highlighted times before publishing.' });
+            return;
+        }
         const invalidPrice = PRICE_TYPES.some(type => !Number.isFinite(Number(seatPrices[type.id])) || Number(seatPrices[type.id]) <= 0);
         if (invalidPrice) {
             setMessage({ type: 'error', text: 'Enter a valid price greater than zero for every seat type.' });
@@ -157,6 +206,30 @@ const AdminShowtimes = () => {
         loadData();
     };
 
+    const loadOccupancy = async showtimeId => {
+        setOccupancyLoading(true);
+        setOccupancyError('');
+        try {
+            setOccupancyData(await cinemaApi.getShowtimeOccupancy(showtimeId));
+        } catch (error) {
+            setOccupancyError(error.message || 'Could not load seat occupancy.');
+        } finally {
+            setOccupancyLoading(false);
+        }
+    };
+
+    const openOccupancy = showtimeId => {
+        setOccupancyShowtimeId(showtimeId);
+        setOccupancyData(null);
+        loadOccupancy(showtimeId);
+    };
+
+    const closeOccupancy = () => {
+        setOccupancyShowtimeId(null);
+        setOccupancyData(null);
+        setOccupancyError('');
+    };
+
     return (
         <div className="flex min-h-screen bg-background text-white">
             <AdminSidebar />
@@ -180,6 +253,8 @@ const AdminShowtimes = () => {
                             </div>
                         </div>
 
+                        {selectedMovie && <div className={`rounded-xl border px-4 py-3 text-sm ${scheduleConflicts.size ? 'border-red-400/30 bg-red-400/10 text-red-200' : 'border-sky-400/20 bg-sky-400/[0.07] text-sky-200'}`}><strong>{formatDuration(selectedMovie.duration_mins)} runtime.</strong> Each show on the selected screen must finish before the next one starts.{scheduleConflicts.size > 0 && <span className="ml-2 font-semibold">{scheduleConflicts.size} conflicting time{scheduleConflicts.size === 1 ? '' : 's'} highlighted below.</span>}</div>}
+
                         <div className="space-y-4">
                             {scheduleDays.map((day, dayIndex) => (
                                 <div key={dayIndex} className="rounded-xl border border-white/10 bg-black/15 p-5">
@@ -193,19 +268,22 @@ const AdminShowtimes = () => {
                                                 <button type="button" onClick={() => toggleFirstDateSync(dayIndex)} className={`flex h-12 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors ${day.syncWithFirst ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-white/10 text-slate-300 hover:border-primary/35 hover:bg-primary/10 hover:text-primary'}`}>{day.syncWithFirst ? <><Unlink2 size={16} /> Stop sync</> : <><Link2 size={16} /> Use date 1 times</>}</button>
                                             )}
                                         </div>
-                                        <div className="flex-1"><span className="mb-2 flex items-center gap-2 text-sm text-gray-300"><Clock3 size={16} className="text-primary" /> Times on this date {day.syncWithFirst && <small className="rounded-full bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-300">Live synced{day.excludedTemplateTimes?.length ? ' · customized' : ''}</small>}</span><div className="flex flex-wrap gap-2">{day.times.map((time, timeIndex) => <div key={timeIndex} className="flex items-center gap-1"><input type="time" className="input-field w-36" value={time} onChange={event => updateTime(dayIndex, timeIndex, event.target.value)} disabled={day.syncWithFirst} required />{day.times.length > 1 && <button type="button" onClick={() => removeTime(dayIndex, timeIndex)} className="p-2 text-gray-500 hover:text-red-400" title={day.syncWithFirst ? 'Exclude this time from this date' : 'Remove time'}><X size={17} /></button>}</div>)}{!day.syncWithFirst && <button type="button" onClick={() => addTime(dayIndex)} className="btn-secondary flex items-center gap-1 px-3"><Plus size={16} /> Add time</button>}</div></div>
+                                        <div className="flex-1"><span className="mb-2 flex items-center gap-2 text-sm text-gray-300"><Clock3 size={16} className="text-primary" /> Times on this date {day.syncWithFirst && <small className="rounded-full bg-emerald-400/10 px-2 py-0.5 font-semibold text-emerald-300">Live synced{day.excludedTemplateTimes?.length ? ' · customized' : ''}</small>}</span><div className="flex flex-wrap items-start gap-2">{day.times.map((time, timeIndex) => { const conflict = scheduleConflicts.get(`${dayIndex}-${timeIndex}`); return <div key={timeIndex} className="max-w-52"><div className="flex items-center gap-1"><input type="time" className={`input-field w-36 ${conflict ? 'border-red-400/70 bg-red-400/[0.08] focus:border-red-400 focus:shadow-[0_0_0_1px_rgb(248,113,113)]' : ''}`} value={time} onChange={event => updateTime(dayIndex, timeIndex, event.target.value)} disabled={day.syncWithFirst} aria-invalid={Boolean(conflict)} required />{day.times.length > 1 && <button type="button" onClick={() => removeTime(dayIndex, timeIndex)} className={`p-2 ${conflict ? 'text-red-300' : 'text-gray-500'} hover:text-red-400`} title={day.syncWithFirst ? 'Exclude this time from this date' : 'Remove time'}><X size={17} /></button>}</div>{conflict && <p className="mt-1.5 text-[11px] leading-4 text-red-300">{conflict[0]}</p>}</div>; })}{!day.syncWithFirst && <button type="button" onClick={() => addTime(dayIndex)} className="btn-secondary flex items-center gap-1 px-3"><Plus size={16} /> Add time</button>}</div></div>
                                         {dayIndex > 0 && <button type="button" onClick={() => removeDate(dayIndex)} className="p-3 text-gray-500 hover:text-red-400" title="Remove date"><Trash2 size={18} /></button>}
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="flex flex-wrap justify-between gap-3"><button type="button" onClick={addDate} className="btn-secondary flex items-center gap-2"><Plus size={17} /> Add another date</button><button disabled={saving || movies.length === 0 || screens.length === 0} className="btn-primary px-8">{saving ? 'Publishing schedule...' : `Publish ${slotCount} Showtime${slotCount === 1 ? '' : 's'}`}</button></div>
+                        <div className="flex flex-wrap justify-between gap-3"><button type="button" onClick={addDate} className="btn-secondary flex items-center gap-2"><Plus size={17} /> Add another date</button><div className="text-right">{scheduleConflicts.size > 0 && <p className="mb-2 text-xs font-semibold text-red-300">Resolve overlapping times to publish</p>}<button disabled={saving || movies.length === 0 || screens.length === 0 || scheduleConflicts.size > 0} className="btn-primary px-8">{saving ? 'Publishing schedule...' : `Publish ${slotCount} Showtime${slotCount === 1 ? '' : 's'}`}</button></div></div>
                     </form>
                 </section>
 
+                {showtimes.length > 0 && <section className="mb-8"><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold">Seat occupancy</h2><p className="mt-1 text-sm text-slate-500">Choose a published date and time to inspect its live hall map.</p></div><span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-400">Booked + active holds</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{showtimes.map(showtime => { const start = new Date(showtime.start_time); return <button type="button" key={showtime.id} onClick={() => openOccupancy(showtime.id)} className="group flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-[#111824] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.06]"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><CalendarClock size={21} /></span><span className="min-w-0 flex-1"><strong className="block truncate">{showtime.movie_title}</strong><span className="mt-1 block text-sm text-slate-400">{start.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span><span className="mt-1 block truncate text-xs text-slate-600">{showtime.screen_name}</span></span><span className="text-xs font-bold text-slate-500 transition-colors group-hover:text-primary">View seats</span></button>; })}</div></section>}
+
                 <section><h2 className="text-xl font-bold mb-4">Published showtimes</h2>{showtimes.length === 0 ? <div className="glass-panel p-12 text-center text-gray-400"><CalendarClock size={42} className="mx-auto mb-3 text-gray-600" />No showtimes scheduled.</div> : <div className="overflow-x-auto glass-panel"><table className="w-full text-left"><thead className="text-xs uppercase tracking-wider text-gray-400 border-b border-white/10"><tr><th className="p-4">Movie</th><th className="p-4">Cinema</th><th className="p-4">Date</th><th className="p-4">Start–end</th><th className="p-4">Seat prices</th><th className="p-4">Status</th><th className="p-4"></th></tr></thead><tbody>{showtimes.map(showtime => { const start = new Date(showtime.start_time); const end = new Date(showtime.end_time); const upcoming = start >= new Date(); return <tr key={showtime.id} className="border-b border-white/5 last:border-0"><td className="p-4 font-semibold">{showtime.movie_title}</td><td className="p-4 text-gray-300">{showtime.screen_name}</td><td className="p-4 text-gray-300">{start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td><td className="p-4 text-gray-300">{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td className="p-4"><span className="font-semibold">{priceRange(showtime)}</span><span className="mt-1 block text-xs text-slate-500">per seat</span></td><td className="p-4"><span className={`text-xs px-2 py-1 rounded-full ${upcoming ? 'bg-emerald-500/15 text-emerald-300' : 'bg-gray-500/15 text-gray-400'}`}>{upcoming ? 'Upcoming' : 'Ended'}</span></td><td className="p-4 text-right"><button onClick={() => deleteShowtime(showtime)} className="p-2 text-gray-400 hover:text-red-400"><Trash2 size={17} /></button></td></tr>; })}</tbody></table></div>}</section>
             </main>
+            {occupancyShowtimeId && <AdminSeatOccupancy data={occupancyData} loading={occupancyLoading} error={occupancyError} onClose={closeOccupancy} onRefresh={() => loadOccupancy(occupancyShowtimeId)} />}
         </div>
     );
 };
