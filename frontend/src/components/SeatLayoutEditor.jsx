@@ -126,6 +126,10 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
     const [selectedType, setSelectedType] = useState('standard');
     const [tool, setTool] = useState('select');
     const [screenWidth, setScreenWidth] = useState(74);
+    const [dimensionInputs, setDimensionInputs] = useState(() => {
+        const initial = normalizeLayout(initialLayout);
+        return { rows: String(initial.length), cols: String(initial[0]?.length || 1) };
+    });
 
     const rows = layout.length;
     const cols = layout[0]?.length || 1;
@@ -147,6 +151,7 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
             if (!previous.length) return previous;
             const restored = previous[previous.length - 1];
             setLayout(restored);
+            setDimensionInputs({ rows: String(restored.length), cols: String(restored[0]?.length || 1) });
             setSelectedSeats([]);
             setLastSelected(null);
             return previous.slice(0, -1);
@@ -181,6 +186,22 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
             const [row, col] = key.split('-').map(Number);
             return row < safeRows && col < safeCols;
         }));
+    };
+
+    const updateDimension = (part, value) => {
+        if (value !== '' && !/^\d+$/.test(value)) return;
+        const nextInputs = { ...dimensionInputs, [part]: value };
+        setDimensionInputs(nextInputs);
+        if (value === '') return;
+        resizeGrid(nextInputs.rows || rows, nextInputs.cols || cols);
+    };
+
+    const normalizeDimension = part => {
+        const current = part === 'rows' ? rows : cols;
+        const maximum = part === 'rows' ? 30 : 40;
+        const normalized = String(clamp(Number(dimensionInputs[part]) || current, 1, maximum));
+        setDimensionInputs(inputs => ({ ...inputs, [part]: normalized }));
+        resizeGrid(part === 'rows' ? normalized : rows, part === 'cols' ? normalized : cols);
     };
 
     const applyType = useCallback(type => {
@@ -285,8 +306,8 @@ const SeatLayoutEditor = ({ initialName = '', initialLayout = [], onSave, saving
                     <div>
                         <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold">Grid size</h3><span className="text-xs text-slate-500">Updates live</span></div>
                         <div className="grid grid-cols-2 gap-3">
-                            <label><span className="mb-1.5 block text-xs text-slate-400">Rows</span><input aria-label="Number of seat rows" type="number" min="1" max="30" value={rows} onChange={event => resizeGrid(event.target.value, cols)} className="input-field" /></label>
-                            <label><span className="mb-1.5 block text-xs text-slate-400">Columns</span><input aria-label="Number of seat columns" type="number" min="1" max="40" value={cols} onChange={event => resizeGrid(rows, event.target.value)} className="input-field" /></label>
+                            <label><span className="mb-1.5 block text-xs text-slate-400">Rows</span><input aria-label="Number of seat rows" type="number" inputMode="numeric" min="1" max="30" value={dimensionInputs.rows} onChange={event => updateDimension('rows', event.target.value)} onBlur={() => normalizeDimension('rows')} className="input-field" /></label>
+                            <label><span className="mb-1.5 block text-xs text-slate-400">Columns</span><input aria-label="Number of seat columns" type="number" inputMode="numeric" min="1" max="40" value={dimensionInputs.cols} onChange={event => updateDimension('cols', event.target.value)} onBlur={() => normalizeDimension('cols')} className="input-field" /></label>
                         </div>
                     </div>
 
