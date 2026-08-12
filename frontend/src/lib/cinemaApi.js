@@ -68,11 +68,12 @@ export const cinemaApi = {
     async listShowtimes() {
         const data = failOnError(await supabase
             .from('showtimes')
-            .select('*, movies!inner(title), screens!inner(name)')
+            .select('*, movies!inner(title,poster_url), screens!inner(name)')
             .order('start_time', { ascending: false }));
         return data.map(showtime => ({
             ...showtime,
             movie_title: showtime.movies.title,
+            poster_url: showtime.movies.poster_url,
             screen_name: showtime.screens.name,
         }));
     },
