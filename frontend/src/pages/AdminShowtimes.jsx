@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, CalendarDays, Clock3, Link2, Plus, Tags, Trash2, Unlink2, X } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import AdminSeatOccupancy from '../components/AdminSeatOccupancy';
+import PublishedScheduleExplorer from '../components/PublishedScheduleExplorer';
 import { cinemaApi } from '../lib/cinemaApi';
 import { formatDuration } from '../lib/formatters';
 
-const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 const emptyDay = () => ({ date: '', times: [''], syncWithFirst: false, excludedTemplateTimes: [] });
 const PRICE_TYPES = [
     { id: 'standard', label: 'Standard', color: 'bg-sky-500', hint: 'per seat' },
@@ -14,14 +14,6 @@ const PRICE_TYPES = [
     { id: 'accessible', label: 'Accessible', color: 'bg-emerald-500', hint: 'per seat' },
 ];
 const DEFAULT_PRICES = { standard: 1500, vip: 2200, couple: 2000, accessible: 1500 };
-
-const priceRange = showtime => {
-    const values = Object.values(showtime.seat_prices || {}).map(Number).filter(value => value > 0);
-    if (!values.length) return money(showtime.price);
-    const minimum = Math.min(...values);
-    const maximum = Math.max(...values);
-    return minimum === maximum ? money(minimum) : `${money(minimum)} – ${money(maximum)}`;
-};
 
 const localDateValue = date => {
     const year = date.getFullYear();
@@ -279,9 +271,7 @@ const AdminShowtimes = () => {
                     </form>
                 </section>
 
-                {showtimes.length > 0 && <section className="mb-8"><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold">Seat occupancy</h2><p className="mt-1 text-sm text-slate-500">Choose a published date and time to inspect its live hall map.</p></div><span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-400">Booked + active holds</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{showtimes.map(showtime => { const start = new Date(showtime.start_time); return <button type="button" key={showtime.id} onClick={() => openOccupancy(showtime.id)} className="group flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-[#111824] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.06]"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><CalendarClock size={21} /></span><span className="min-w-0 flex-1"><strong className="block truncate">{showtime.movie_title}</strong><span className="mt-1 block text-sm text-slate-400">{start.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span><span className="mt-1 block truncate text-xs text-slate-600">{showtime.screen_name}</span></span><span className="text-xs font-bold text-slate-500 transition-colors group-hover:text-primary">View seats</span></button>; })}</div></section>}
-
-                <section><h2 className="text-xl font-bold mb-4">Published showtimes</h2>{showtimes.length === 0 ? <div className="glass-panel p-12 text-center text-gray-400"><CalendarClock size={42} className="mx-auto mb-3 text-gray-600" />No showtimes scheduled.</div> : <div className="overflow-x-auto glass-panel"><table className="w-full text-left"><thead className="text-xs uppercase tracking-wider text-gray-400 border-b border-white/10"><tr><th className="p-4">Movie</th><th className="p-4">Cinema</th><th className="p-4">Date</th><th className="p-4">Start–end</th><th className="p-4">Seat prices</th><th className="p-4">Status</th><th className="p-4"></th></tr></thead><tbody>{showtimes.map(showtime => { const start = new Date(showtime.start_time); const end = new Date(showtime.end_time); const upcoming = start >= new Date(); return <tr key={showtime.id} className="border-b border-white/5 last:border-0"><td className="p-4 font-semibold">{showtime.movie_title}</td><td className="p-4 text-gray-300">{showtime.screen_name}</td><td className="p-4 text-gray-300">{start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td><td className="p-4 text-gray-300">{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td className="p-4"><span className="font-semibold">{priceRange(showtime)}</span><span className="mt-1 block text-xs text-slate-500">per seat</span></td><td className="p-4"><span className={`text-xs px-2 py-1 rounded-full ${upcoming ? 'bg-emerald-500/15 text-emerald-300' : 'bg-gray-500/15 text-gray-400'}`}>{upcoming ? 'Upcoming' : 'Ended'}</span></td><td className="p-4 text-right"><button onClick={() => deleteShowtime(showtime)} className="p-2 text-gray-400 hover:text-red-400"><Trash2 size={17} /></button></td></tr>; })}</tbody></table></div>}</section>
+                <PublishedScheduleExplorer showtimes={showtimes} onViewSeats={openOccupancy} onDelete={deleteShowtime} />
             </main>
             {occupancyShowtimeId && <AdminSeatOccupancy data={occupancyData} loading={occupancyLoading} error={occupancyError} onClose={closeOccupancy} onRefresh={() => loadOccupancy(occupancyShowtimeId)} />}
         </div>
