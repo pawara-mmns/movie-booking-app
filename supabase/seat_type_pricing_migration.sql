@@ -94,3 +94,6 @@ $$;
 
 revoke all on function public.create_booking(bigint, jsonb) from public, anon;
 grant execute on function public.create_booking(bigint, jsonb) to authenticated;
+
+-- Make the new column visible to PostgREST immediately.
+notify pgrst, 'reload schema';
