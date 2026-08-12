@@ -77,11 +77,12 @@ export const cinemaApi = {
         }));
     },
 
-    async createShowtimes({ movieId, screenId, price, slots }) {
+    async createShowtimes({ movieId, screenId, price, seatPrices, slots }) {
         const rows = slots.map(slot => ({
             movie_id: movieId,
             screen_id: screenId,
             price,
+            seat_prices: seatPrices,
             ...slot,
         }));
         const data = failOnError(await supabase.from('showtimes').insert(rows).select('id'));

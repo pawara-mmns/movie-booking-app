@@ -76,7 +76,7 @@ const BookingPage = () => {
                 {!user && <section className="mb-8 rounded-xl border border-sky-500/25 bg-sky-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"><div className="flex items-start gap-3"><Users className="text-sky-400 shrink-0 mt-0.5" /><div><p className="font-semibold">You are browsing as a guest</p><p className="text-sm text-gray-300 mt-1">Preview the live seat map and select up to 6 seats. You will create an account before booking.</p></div></div><Link to={`/login?returnTo=${encodeURIComponent(`/booking/${showtimeId}`)}`} className="btn-secondary whitespace-nowrap">Already have an account?</Link></section>}
                 {user && <div className="mb-6 flex items-center justify-center gap-2 text-sm text-gray-400"><LockKeyhole size={16} className="text-primary" /> Selected seats are held for 5 minutes.</div>}
 
-                <SeatSelection layout={normalizedLayout} unavailableSeats={unavailableSeats} seatPrice={showtime.price} onBookingChange={setBookingData} onSelectSeat={user ? (row, col) => requestSeat('lock', row, col) : undefined} onReleaseSeat={user ? (row, col) => requestSeat('release', row, col) : undefined} />
+                <SeatSelection layout={normalizedLayout} unavailableSeats={unavailableSeats} seatPrice={showtime.price} seatPrices={showtime.seat_prices} onBookingChange={setBookingData} onSelectSeat={user ? (row, col) => requestSeat('lock', row, col) : undefined} onReleaseSeat={user ? (row, col) => requestSeat('release', row, col) : undefined} />
             </main>
 
             <footer className="fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 shadow-2xl z-50">

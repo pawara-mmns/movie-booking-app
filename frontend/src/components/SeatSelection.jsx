@@ -33,14 +33,20 @@ const couplePairForRow = (row, col) => {
     return row[pairStart + 1] === 'couple' ? [pairStart, pairStart + 1] : null;
 };
 
-const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, onBookingChange, onSelectSeat, onReleaseSeat }) => {
+const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, seatPrices = {}, onBookingChange, onSelectSeat, onReleaseSeat }) => {
     const [selectedSeats, setSelectedSeats] = useState([]);
     const [pendingSeat, setPendingSeat] = useState('');
 
+    const priceForType = type => Number(seatPrices[type] || seatPrices.standard || seatPrice || 0);
+
     const changeSelection = next => {
         const uniqueSeats = [...new Set(next)];
+        const total = uniqueSeats.reduce((sum, id) => {
+            const [row, col] = id.split('-').map(Number);
+            return sum + priceForType(layout[row]?.[col]);
+        }, 0);
         setSelectedSeats(uniqueSeats);
-        onBookingChange({ seats: uniqueSeats, total: uniqueSeats.length * seatPrice });
+        onBookingChange({ seats: uniqueSeats, total });
     };
 
     const handleSeatClick = async (row, col, type) => {
@@ -96,10 +102,10 @@ const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, onBookingChan
     return (
         <div className="flex w-full flex-col items-center">
             <div className="mb-8 flex flex-wrap justify-center gap-4 text-sm text-gray-400">
-                <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-sky-500/35" /> Standard</span>
-                <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-primary/55" /> VIP</span>
-                <span className="flex items-center gap-2"><i className="h-4 w-7 rounded-t-md bg-pink-500/55" /> Couple · 2 seats</span>
-                <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-emerald-500/45" /> Accessible</span>
+                <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-sky-500/35" /> Standard · {money(priceForType('standard'))}</span>
+                <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-primary/55" /> VIP · {money(priceForType('vip'))}</span>
+                <span className="flex items-center gap-2"><i className="h-4 w-7 rounded-t-md bg-pink-500/55" /> Couple · {money(priceForType('couple') * 2)} / pair</span>
+                <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-emerald-500/45" /> Accessible · {money(priceForType('accessible'))}</span>
                 <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-green-500" /> Selected</span>
                 <span className="flex items-center gap-2"><i className="h-4 w-4 rounded-sm bg-red-900/60" /> Unavailable</span>
             </div>
@@ -136,7 +142,7 @@ const SeatSelection = ({ layout, unavailableSeats = [], seatPrice, onBookingChan
                                         onClick={() => handleSeatClick(row, col, type)}
                                         disabled={blocked || unavailable || Boolean(pendingSeat && !pending)}
                                         className={clsx('relative flex h-9 items-center justify-center rounded-t-lg text-[10px] font-bold transition-all', couplePair ? 'w-20 border-x border-pink-300/20' : 'w-9', color, !blocked && !unavailable && !selected && 'hover:-translate-y-1')}
-                                        title={`${seatName} · ${couplePair ? `Couple seat · ${money(seatPrice * 2)}` : money(seatPrice)}`}
+                                        title={`${seatName} · ${couplePair ? `Couple seat · ${money(priceForType('couple') * 2)} per pair` : money(priceForType(type))}`}
                                         aria-label={`${seatName}, ${couplePair ? 'couple seat for two people' : type}`}
                                     >
                                         {pending ? <LoaderCircle size={13} className="animate-spin" /> : selected ? <CheckCircle size={13} /> : couplePair ? <span>{couplePair[0] + 1} + {couplePair[1] + 1}</span> : <span className="opacity-70">{col + 1}</span>}
