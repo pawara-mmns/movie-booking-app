@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import OAuthCallback from './pages/OAuthCallback';
+import PaymentDetails from './pages/PaymentDetails';
+import PaymentStatus from './pages/PaymentStatus';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminMovies from './pages/AdminMovies';
 import AdminScreens from './pages/AdminScreens';
@@ -53,6 +55,8 @@ function App() {
           <Route path="/admin/showtimes" element={<AdminRoute><AdminShowtimes /></AdminRoute>} />
 
           <Route path="/booking/:showtimeId" element={<BookingPage />} />
+          <Route path="/payment" element={<ProtectedRoute><PaymentDetails /></ProtectedRoute>} />
+          <Route path="/payment/status/:orderId" element={<ProtectedRoute><PaymentStatus /></ProtectedRoute>} />
           <Route path="/movies/:movieId" element={<MovieDetails />} />
 
           <Route path="/" element={<MovieBrowser />} />

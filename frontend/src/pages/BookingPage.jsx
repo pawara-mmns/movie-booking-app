@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, Loader, LockKeyhole, MapPin, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CreditCard, LockKeyhole, MapPin, UserPlus, Users } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CustomerHeader from '../components/CustomerHeader';
 import SeatSelection from '../components/SeatSelection';
 import { useAuth } from '../context/AuthContext';
 import { cinemaApi } from '../lib/cinemaApi';
-import { notify } from '../lib/notifications';
 
 const money = cents => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(cents / 100);
 
@@ -17,7 +16,6 @@ const BookingPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [bookingData, setBookingData] = useState({ seats: [], total: 0 });
-    const [processing, setProcessing] = useState(false);
 
     const loadShowtime = useCallback(async () => {
         setLoading(true);
@@ -40,25 +38,26 @@ const BookingPage = () => {
         ? cinemaApi.holdSeat(showtimeId, row, col)
         : cinemaApi.releaseSeat(showtimeId, row, col);
 
-    const handleBooking = async () => {
+    const handleBooking = () => {
         if (bookingData.seats.length === 0) return;
         if (!user) {
             navigate(`/register?returnTo=${encodeURIComponent(`/booking/${showtimeId}`)}`);
             return;
         }
 
-        setProcessing(true);
-        try {
-            const data = await cinemaApi.createBooking(showtimeId, bookingData.seats);
-            notify.success(`Booking confirmed! Reference: ${data.reference}`, { autoClose: 6500 });
-            navigate('/dashboard');
-        } catch (requestError) {
-            notify.error(requestError, 'Could not complete your booking.');
-            await loadShowtime();
-            setBookingData({ seats: [], total: 0 });
-        } finally {
-            setProcessing(false);
-        }
+        navigate('/payment', {
+            state: {
+                checkout: {
+                    showtimeId,
+                    movieTitle: showtime.movie_title,
+                    screenName: showtime.screen_name,
+                    startTime: showtime.start_time,
+                    posterUrl: showtime.poster_url,
+                    seats: bookingData.seats,
+                    total: bookingData.total,
+                },
+            },
+        });
     };
 
     if (loading) return <div className="min-h-screen bg-background text-white flex items-center justify-center">Loading seat availability...</div>;
@@ -81,7 +80,7 @@ const BookingPage = () => {
             </main>
 
             <footer className="fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-white/10 p-4 shadow-2xl z-50">
-                <div className="max-w-5xl mx-auto flex justify-between items-center gap-5"><div><p className="text-gray-400 text-sm">Total · {bookingData.seats.length} seat{bookingData.seats.length === 1 ? '' : 's'}</p><p className="text-2xl font-bold text-primary">{money(bookingData.total)}</p></div><div className="flex items-center gap-6"><div className="text-right hidden sm:block"><p className="text-gray-400 text-sm">Selected seats</p><p className="font-medium">{bookingData.seats.length ? bookingData.seats.map(seat => { const [row, col] = seat.split('-').map(Number); return `${String.fromCharCode(65 + row)}${col + 1}`; }).join(', ') : 'None'}</p></div><button onClick={handleBooking} disabled={bookingData.seats.length === 0 || processing} className="btn-primary flex items-center gap-2 px-8 py-3">{processing ? <Loader className="animate-spin" /> : user ? 'Confirm Booking' : <><UserPlus size={18} /> Create Account to Book</>}</button></div></div>
+                <div className="max-w-5xl mx-auto flex justify-between items-center gap-5"><div><p className="text-gray-400 text-sm">Total · {bookingData.seats.length} seat{bookingData.seats.length === 1 ? '' : 's'}</p><p className="text-2xl font-bold text-primary">{money(bookingData.total)}</p></div><div className="flex items-center gap-6"><div className="text-right hidden sm:block"><p className="text-gray-400 text-sm">Selected seats</p><p className="font-medium">{bookingData.seats.length ? bookingData.seats.map(seat => { const [row, col] = seat.split('-').map(Number); return `${String.fromCharCode(65 + row)}${col + 1}`; }).join(', ') : 'None'}</p></div><button onClick={handleBooking} disabled={bookingData.seats.length === 0} className="btn-primary flex items-center gap-2 px-8 py-3">{user ? <><CreditCard size={18} /> Continue to payment</> : <><UserPlus size={18} /> Create Account to Book</>}</button></div></div>
             </footer>
         </div>
     );
